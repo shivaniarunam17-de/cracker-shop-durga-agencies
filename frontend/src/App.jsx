@@ -2147,6 +2147,18 @@ const SessionsPanel = () => {
   );
 };
 
+const Field = ({ label, k, type = 'text', placeholder, form, setForm }) => (
+  <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+    <label style={{ fontSize: '0.7rem', fontWeight: '800', color: '#888', letterSpacing: '1.5px', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>{label}</label>
+    <input id={k} name={k} type={type} placeholder={placeholder} value={form[k] || ''}
+      onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
+      style={{ width: '100%', padding: '1rem 1.2rem', border: '2px solid #f0f0f0', borderRadius: '14px', fontWeight: '700', fontSize: '1rem', outline: 'none' }}
+      onFocus={e => e.target.style.borderColor = '#8B0000'}
+      onBlur={e => e.target.style.borderColor = '#f0f0f0'}
+    />
+  </div>
+);
+
 const SettingsPanel = () => {
   const [form, setForm] = useState({
     promo_title: '', promo_subtitle: '',
@@ -2173,38 +2185,26 @@ const SettingsPanel = () => {
     }
   };
 
-  const Field = ({ label, k, type = 'text', placeholder }) => (
-    <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
-      <label style={{ fontSize: '0.7rem', fontWeight: '800', color: '#888', letterSpacing: '1.5px', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>{label}</label>
-      <input id={k} name={k} type={type} placeholder={placeholder} value={form[k] || ''}
-        onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
-        style={{ width: '100%', padding: '1rem 1.2rem', border: '2px solid #f0f0f0', borderRadius: '14px', fontWeight: '700', fontSize: '1rem', outline: 'none' }}
-        onFocus={e => e.target.style.borderColor = '#8B0000'}
-        onBlur={e => e.target.style.borderColor = '#f0f0f0'}
-      />
-    </div>
-  );
-
   return (
     <div className="fade-in" style={{ maxWidth: '700px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
         <div className="price-list-container" style={{ padding: '2.5rem' }}>
           <h3 style={{ fontWeight: '900', marginBottom: '2rem', color: '#121212' }}>🎉 Promo Banner</h3>
-          <Field label="Promo Title" k="promo_title" placeholder="FESTIVE DHAMAKA OFFERS!" />
-          <Field label="Promo Subtitle" k="promo_subtitle" placeholder="UP TO 80% OFF ON SELECTED ITEMS" />
+          <Field label="Promo Title" k="promo_title" placeholder="FESTIVE DHAMAKA OFFERS!" form={form} setForm={setForm} />
+          <Field label="Promo Subtitle" k="promo_subtitle" placeholder="UP TO 80% OFF ON SELECTED ITEMS" form={form} setForm={setForm} />
         </div>
         <div className="price-list-container" style={{ padding: '2.5rem' }}>
           <h3 style={{ fontWeight: '900', marginBottom: '2rem', color: '#121212' }}>💰 Discount Configurations</h3>
-          <Field label="Sitewide Discount (%)" k="global_discount_percent" type="number" placeholder="0" />
+          <Field label="Sitewide Discount (%)" k="global_discount_percent" type="number" placeholder="0" form={form} setForm={setForm} />
           <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '1rem', lineHeight: '1.4' }}>
             ℹ️ <b>Shipping Note:</b> Shipping/Delivery charges are handled on a "To-Pay" basis where the customer pays the lorry transport office directly during collection. Free shipping threshold settings are disabled.
           </p>
         </div>
         <div className="price-list-container" style={{ padding: '2.5rem', gridColumn: '1 / -1' }}>
           <h3 style={{ fontWeight: '900', marginBottom: '2rem', color: '#121212' }}>📱 Contact & Payments</h3>
-          <Field label="WhatsApp Number (with country code, no +)" k="whatsapp_number" placeholder="917604849468" />
-          <Field label="UPI ID" k="upi_id" placeholder="example@upi" />
-          <Field label="UPI Registered Payee Name (Must match bank name)" k="upi_name" placeholder="Durga Agencies" />
+          <Field label="WhatsApp Number (with country code, no +)" k="whatsapp_number" placeholder="917604849468" form={form} setForm={setForm} />
+          <Field label="UPI ID" k="upi_id" placeholder="example@upi" form={form} setForm={setForm} />
+          <Field label="UPI Registered Payee Name (Must match bank name)" k="upi_name" placeholder="Durga Agencies" form={form} setForm={setForm} />
         </div>
       </div>
       <button onClick={save} className="btn-primary" style={{ marginTop: '2rem', height: '60px', minWidth: '220px', background: saved ? '#25D366' : '#8B0000', fontSize: '1rem' }}>
