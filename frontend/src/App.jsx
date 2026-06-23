@@ -529,7 +529,12 @@ const App = () => {
     fetchSettings();
     fetchSessionStatus();
     const timer = setTimeout(() => setLoading(false), 3000);
-    if (window.location.pathname === '/admin' || window.location.hash === '#/admin') setView('admin');
+    const hash = window.location.hash;
+    if (window.location.pathname === '/admin' || hash === '#/admin') {
+      setView('admin');
+    } else if (hash.startsWith('#/')) {
+      setView(hash.replace('#/', ''));
+    }
 
     // Set up Axios interceptors for handling admin authentication headers globally
     const reqInterceptor = axios.interceptors.request.use(
@@ -564,6 +569,33 @@ const App = () => {
       axios.interceptors.response.eject(resInterceptor);
     };
   }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#/admin') {
+        setView('admin');
+      } else if (hash.startsWith('#/')) {
+        setView(hash.replace('#/', ''));
+      } else {
+        setView('shop');
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    const currentHash = window.location.hash;
+    const expectedHash = view === 'shop' ? '' : `#/${view}`;
+    if (currentHash !== expectedHash) {
+      if (expectedHash === '') {
+        window.history.replaceState(null, '', window.location.pathname);
+      } else {
+        window.location.hash = expectedHash;
+      }
+    }
+  }, [view]);
 
   useEffect(() => {
     if (view !== 'shop' || loading) return;
