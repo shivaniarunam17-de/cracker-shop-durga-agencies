@@ -449,10 +449,22 @@ const App = () => {
     promo_subtitle: '',
     free_shipping_threshold: '999',
     global_discount_percent: '0',
-    shipping_cost: '100'
+    shipping_cost: '100',
+    upi_name: 'Durga Agencies'
   });
   const [shopOpen, setShopOpen] = useState(true);
   const [sessionInfo, setSessionInfo] = useState(null);
+
+  const dynamicSlides = SLIDES_DATA.map((slide, idx) => {
+    if (idx === 1) {
+      const pct = parseFloat(settings?.global_discount_percent || 0) || 80;
+      return {
+        ...slide,
+        title: `Up To ${pct}% Off On\nAll Selected Items`
+      };
+    }
+    return slide;
+  });
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -556,10 +568,10 @@ const App = () => {
   useEffect(() => {
     if (view !== 'shop' || loading) return;
     const interval = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % SLIDES_DATA.length);
+      setCurrentSlide(prev => (prev + 1) % dynamicSlides.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [view, loading]);
+  }, [view, loading, dynamicSlides.length]);
 
   useEffect(() => {
     if (view !== 'shop' || loading) return;
@@ -925,7 +937,7 @@ const App = () => {
                     <div className="hero-sparkle-ember ember-6"></div>
 
                     {/* Slides */}
-                    {SLIDES_DATA.map((slide, idx) => (
+                    {dynamicSlides.map((slide, idx) => (
                       <div
                         key={idx}
                         className={`hero-slide ${currentSlide === idx ? 'active' : ''}`}
@@ -967,14 +979,14 @@ const App = () => {
                     {/* Slider Controls */}
                     <button
                       className="slider-control-btn prev"
-                      onClick={() => setCurrentSlide(prev => (prev - 1 + SLIDES_DATA.length) % SLIDES_DATA.length)}
+                      onClick={() => setCurrentSlide(prev => (prev - 1 + dynamicSlides.length) % dynamicSlides.length)}
                       aria-label="Previous Slide"
                     >
                       ‹
                     </button>
                     <button
                       className="slider-control-btn next"
-                      onClick={() => setCurrentSlide(prev => (prev + 1) % SLIDES_DATA.length)}
+                      onClick={() => setCurrentSlide(prev => (prev + 1) % dynamicSlides.length)}
                       aria-label="Next Slide"
                     >
                       ›
@@ -982,7 +994,7 @@ const App = () => {
 
                     {/* Slide Dots */}
                     <div className="slider-dots">
-                      {SLIDES_DATA.map((_, idx) => (
+                      {dynamicSlides.map((_, idx) => (
                         <button
                           key={idx}
                           className={`slider-dot ${currentSlide === idx ? 'active' : ''}`}
@@ -1079,7 +1091,7 @@ const App = () => {
                     <span className="promo-diya">🪔</span>
                     <div>
                       <div className="promo-title">{settings.promo_title || 'FESTIVE DHAMAKA OFFERS!'}</div>
-                      <div className="promo-subtitle">{settings.promo_subtitle || 'UP TO 80% OFF ON SELECTED ITEMS'}</div>
+                      <div className="promo-subtitle">{settings.promo_subtitle || `UP TO ${parseFloat(settings.global_discount_percent || 0) || 80}% OFF ON SELECTED ITEMS`}</div>
                     </div>
                   </div>
                   <PromoTicker discountPercent={parseFloat(settings.global_discount_percent || 0)} />
@@ -1361,7 +1373,7 @@ const App = () => {
               <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
                 <p style={{ fontSize: '0.8rem', color: '#0a2e6b', fontWeight: '900', letterSpacing: '1px' }}>SCAN TO PAY EXACT AMOUNT</p>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${settings.upi_id || '7604849468@gpay'}&pn=Durga+Agencies&am=${lastOrder.totalAmount}&cu=INR&tn=Order+${lastOrder.billNumber}`)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${settings.upi_id || '7604849468@gpay'}&pn=${settings.upi_name || 'Durga Agencies'}&am=${lastOrder.totalAmount}&cu=INR&tn=Order+${lastOrder.billNumber}`)}`}
                   alt="UPI QR Code"
                   style={{ width: '160px', height: '160px', border: '1px solid #e1e7f0', borderRadius: '12px', padding: '10px' }}
                 />
@@ -1369,7 +1381,7 @@ const App = () => {
               </div>
 
               <a
-                href={`upi://pay?pa=${settings.upi_id || '7604849468@gpay'}&pn=Durga+Agencies&am=${lastOrder.totalAmount}&cu=INR&tn=Order+${lastOrder.billNumber}`}
+                href={`upi://pay?pa=${settings.upi_id || '7604849468@gpay'}&pn=${encodeURIComponent(settings.upi_name || 'Durga Agencies')}&am=${lastOrder.totalAmount}&cu=INR&tn=Order+${lastOrder.billNumber}`}
                 style={{ display: 'block', background: '#FFD700', color: '#0a2e6b', padding: '1.1rem', borderRadius: '14px', fontWeight: '900', fontSize: '1.05rem', textDecoration: 'none', marginBottom: '1rem' }}
               >
                 Click here to Pay on Mobile
@@ -1462,20 +1474,6 @@ const App = () => {
                     onKeyDown={e => e.key === 'Enter' && handleNewsletterSubscribe()}
                   />
                   <button className="newsletter-btn" onClick={handleNewsletterSubscribe}>Subscribe</button>
-                </div>
-                <div className="payment-methods" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#cbd5e1', fontSize: '0.75rem', fontWeight: '700', letterSpacing: '1px' }}>
-                    <ShieldCheck size={16} color="#39FF14" /> 100% SECURE PAYMENTS
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <span className="payment-tag visa">VISA</span>
-                    <span className="payment-tag mastercard">
-                      <span className="mc-circle mc-red"></span>
-                      <span className="mc-circle mc-orange"></span>
-                    </span>
-                    <span className="payment-tag upi">UPI</span>
-                    <span className="payment-tag paytm">Paytm</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2156,7 +2154,8 @@ const SettingsPanel = () => {
     global_discount_percent: '0',
     shipping_cost: '100',
     whatsapp_number: '917604849468',
-    upi_id: 'shivaniarunam17@okhdfcbank'
+    upi_id: 'shivaniarunam17@okhdfcbank',
+    upi_name: 'Durga Agencies'
   });
   const [saved, setSaved] = useState(false);
 
@@ -2205,6 +2204,7 @@ const SettingsPanel = () => {
           <h3 style={{ fontWeight: '900', marginBottom: '2rem', color: '#121212' }}>📱 Contact & Payments</h3>
           <Field label="WhatsApp Number (with country code, no +)" k="whatsapp_number" placeholder="917604849468" />
           <Field label="UPI ID" k="upi_id" placeholder="example@upi" />
+          <Field label="UPI Registered Payee Name (Must match bank name)" k="upi_name" placeholder="Durga Agencies" />
         </div>
       </div>
       <button onClick={save} className="btn-primary" style={{ marginTop: '2rem', height: '60px', minWidth: '220px', background: saved ? '#25D366' : '#8B0000', fontSize: '1rem' }}>
