@@ -259,6 +259,7 @@ async function initDB() {
 initDB();
 
 let whatsappClientReady = false;
+let latestQrCode = null;
 const whatsappClient = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -268,6 +269,7 @@ const whatsappClient = new Client({
 });
 
 whatsappClient.on('qr', (qr) => {
+    latestQrCode = qr;
     console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP TO ENABLE AUTO-MESSAGES:');
     qrcode.generate(qr, {small: true});
 });
@@ -275,11 +277,84 @@ whatsappClient.on('qr', (qr) => {
 whatsappClient.on('ready', () => {
     console.log('✅ WhatsApp Web Client is READY! Auto-messaging is active.');
     whatsappClientReady = true;
+    latestQrCode = null;
 });
 
 whatsappClient.initialize().catch(err => console.error("WhatsApp Init Error:", err));
 
 // --- ROUTES ---
+
+// Expose QR code endpoint for easy scan
+app.get('/qr', (req, res) => {
+    if (whatsappClientReady) {
+        return res.send(`
+            <html>
+                <head>
+                    <title>WhatsApp Status</title>
+                    <style>
+                        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
+                        .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                        .status { color: #2ecc71; font-weight: bold; font-size: 24px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h2>WhatsApp Status</h2>
+                        <p class="status">✅ Connected & Ready!</p>
+                        <p>Your WhatsApp account is successfully linked and active.</p>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+
+    if (!latestQrCode) {
+        return res.send(`
+            <html>
+                <head>
+                    <title>WhatsApp Status</title>
+                    <style>
+                        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
+                        .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                        .status { color: #e67e22; font-weight: bold; font-size: 18px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h2>WhatsApp Status</h2>
+                        <p class="status">🔄 Generating QR code...</p>
+                        <p>The server is starting or generating the WhatsApp session. Please refresh this page in a few seconds.</p>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQrCode)}`;
+    res.send(`
+        <html>
+            <head>
+                <title>Scan WhatsApp QR Code</title>
+                <style>
+                    body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
+                    .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                    img { margin: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
+                    p { color: #666; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h2>Scan to Link WhatsApp</h2>
+                    <p>Open WhatsApp on your phone, go to Linked Devices, and scan this QR code:</p>
+                    <img src="${qrImageUrl}" alt="WhatsApp QR Code" />
+                    <br/>
+                    <p>Refresh this page if the scan fails or the code expires.</p>
+                </div>
+            </body>
+        </html>
+    `);
+});
+
 
 // 1. Get all products
 app.get('/api/products', async (req, res) => {
