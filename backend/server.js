@@ -127,8 +127,9 @@ async function initDB() {
     await tempDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
     await tempDb.end();
 
-    db = await mysql.createConnection(dbConfig);
-    console.log('✅ MySQL Connected & Database Ready!');
+    // Initialize Connection Pool
+    db = mysql.createPool(dbConfig);
+    console.log('✅ MySQL Connection Pool Created!');
 
     // Create products table if it doesn't exist
     await db.query(`
@@ -252,7 +253,15 @@ async function initDB() {
     }
 
   } catch (err) {
-    console.error('❌ MySQL Connection Error:', err.message);
+    console.error('❌ Database Initialization Failed. Retrying in 10 seconds...', err.message);
+    if (!db) {
+      try {
+        db = mysql.createPool(dbConfig);
+      } catch (poolErr) {
+        console.error('Failed to create fallback connection pool:', poolErr.message);
+      }
+    }
+    setTimeout(initDB, 10000);
   }
 }
 
