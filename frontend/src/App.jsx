@@ -2176,7 +2176,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
     if (messageType === 'payment_request') {
       const items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
       const itemsList = items.map(i => `- ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('%0A');
-      msg = `*DURGA AGENCIES — Order Confirmed!*%0A%0AHi *${o.customerName}*,%0A%0A📦 Order ID: %23${o.billNumber || o.id}%0A💰 Total: Rs.${o.totalAmount}%0A%0AItems:%0A${itemsList}%0A%0A💳 Please pay Rs.${o.totalAmount} to our UPI ID and send us the screenshot on WhatsApp.%0A%0AThank you! 🙏🪔`;
+      msg = `*DURGA AGENCIES — Order Received!*%0A%0AHi *${o.customerName}*,%0A%0A📦 Order ID: %23${o.billNumber || o.id}%0A💰 Total: Rs.${o.totalAmount}%0A%0A*Items:*%0A${itemsList}%0A%0A✅ Please reply with "YES" to confirm your order.%0AWe will guide you with the payment details after your confirmation.%0A%0AThank you! 🙏🪔`;
     } else if (messageType === 'packing') {
       msg = `*DURGA AGENCIES — Payment Confirmed!*%0A%0AHi *${o.customerName}*,%0AYour payment is confirmed. We are now PACKING your order! 🎉%0A%0AOrder ID: %23${o.billNumber || o.id}%0AAmount: Rs.${o.totalAmount}%0A%0AThank you! 🪔`;
     } else if (messageType === 'dispatched') {
@@ -2195,7 +2195,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
       actions.push(
         <button key="pay" onClick={() => sendWhatsApp(o, 'payment_request')} disabled={waSending[oid + 'payment_request']}
           style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: waSending[oid + 'payment_request'] ? 0.7 : 1 }}>
-          <MessageCircle size={16} /> {waSending[oid + 'payment_request'] ? 'Opening...' : 'WhatsApp: Payment Request'}
+          <MessageCircle size={16} /> {waSending[oid + 'payment_request'] ? 'Opening...' : 'WhatsApp: Confirm Order'}
         </button>
       );
     }
