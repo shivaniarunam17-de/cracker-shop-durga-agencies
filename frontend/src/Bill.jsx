@@ -1,11 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer } from 'lucide-react';
+import logo from './assets/logo.jpeg';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const Bill = ({ bill, onClose }) => {
+  const [shopSettings, setShopSettings] = useState({
+    shop_phone: '+91 76048 49468, +91 91760 48494',
+    shop_address: '2/553D, Mettamalai, Sivakasi - 626 230',
+    shop_email: 'durgaagenciessvk@gmail.com',
+    gst_number: ''
+  });
+
+  useEffect(() => {
+    fetch(`${API_BASE}/settings`)
+      .then(r => r.json())
+      .then(data => setShopSettings(s => ({ ...s, ...data })))
+      .catch(() => {});
+  }, []);
+
   if (!bill) return null;
 
-  const handlePrint = () => {
+  // Convert logo to base64 for print window embedding
+  const getLogoBase64 = () => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg'));
+      };
+      img.onerror = () => resolve('');
+      img.src = logo;
+    });
+  };
+
+  const handlePrint = async () => {
+    const logoBase64 = await getLogoBase64();
     const printWindow = window.open('', '_blank', 'width=800,height=1000');
+
     const itemsHTML = bill.items && bill.items.map((item, idx) => `
       <tr style="border-bottom: 1px solid #ddd;">
         <td style="padding: 10px; text-align: center;">${idx + 1}</td>
@@ -15,6 +51,14 @@ const Bill = ({ bill, onClose }) => {
         <td style="padding: 10px; text-align: right; font-weight: bold;">&#8377;${(item.price * item.qty).toFixed(2)}</td>
       </tr>
     `).join('');
+
+    const gstLine = shopSettings.gst_number
+      ? `<br/><strong>GST No:</strong> ${shopSettings.gst_number}`
+      : '';
+
+    const logoTag = logoBase64
+      ? `<img src="${logoBase64}" alt="Logo" style="width:60px;height:60px;border-radius:8px;object-fit:cover;margin-bottom:4px;" /><br/>`
+      : '';
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -29,7 +73,8 @@ const Bill = ({ bill, onClose }) => {
           .invoice-box { width: 100%; max-width: 800px; margin: auto; }
           .header-table { width: 100%; border-bottom: 3px double #082854; padding-bottom: 15px; margin-bottom: 20px; }
           .shop-name { font-size: 28px; font-weight: 800; color: #082854; text-transform: uppercase; }
-          .shop-details { font-size: 11px; color: #555; text-align: right; line-height: 1.4; }
+          .shop-tagline { font-size: 12px; font-weight: 800; color: #8B0000; letter-spacing: 2px; margin-top: 3px; }
+          .shop-details { font-size: 11px; color: #555; text-align: right; line-height: 1.6; }
           .bill-meta-table { width: 100%; margin-bottom: 25px; border-collapse: collapse; }
           .bill-meta-table td { padding: 8px; vertical-align: top; border: 1px solid #ddd; }
           .section-title { font-size: 11px; font-weight: 800; color: #082854; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
@@ -49,15 +94,17 @@ const Bill = ({ bill, onClose }) => {
         <div class="invoice-box">
           <table class="header-table">
             <tr>
-              <td>
+              <td style="vertical-align:middle;">
+                ${logoTag}
                 <div class="shop-name">DURGA AGENCIES</div>
-                <div style="font-size: 12px; font-weight: 800; color: #8B0000; letter-spacing: 2px; margin-top: 3px;">SIVAKASI PREMIUM CRACKERS</div>
+                <div class="shop-tagline">SIVAKASI PREMIUM CRACKERS</div>
               </td>
               <td class="shop-details">
                 <strong>Durga Agencies Wholesale</strong><br/>
-                2/553D, Mettamalai, Sivakasi - 626 230<br/>
-                Phone: +91 76048 49468, +91 91760 48494<br/>
-                Email: durgaagenciessvk@gmail.com
+                ${shopSettings.shop_address}<br/>
+                Phone: ${shopSettings.shop_phone}<br/>
+                Email: ${shopSettings.shop_email}
+                ${gstLine}
               </td>
             </tr>
           </table>
@@ -75,7 +122,7 @@ const Bill = ({ bill, onClose }) => {
                 <div class="section-title">Invoice Information</div>
                 <strong>Invoice No:</strong> #${bill.billNumber}<br/>
                 <strong>Date:</strong> ${new Date(bill.orderDate).toLocaleDateString('en-IN')}<br/>
-                <strong>Payment Mode:</strong> UPI / Cash Transfer<br/>
+                <strong>Payment Mode:</strong> ${bill.paymentMethod || 'UPI / Cash Transfer'}<br/>
                 <strong>Payment Status:</strong> <span style="color:#082854;font-weight:bold;">${bill.paymentStatus || 'Pending Payment'}</span>
               </td>
             </tr>
@@ -156,8 +203,12 @@ const Bill = ({ bill, onClose }) => {
 
         {/* Receipt Preview */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <img src={logo} alt="Durga Agencies" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', marginBottom: '8px' }} />
           <h2 style={{ color: '#082854', fontWeight: '900', fontSize: '1.5rem', margin: '0 0 4px' }}>DURGA AGENCIES</h2>
-          <p style={{ fontSize: '0.7rem', fontWeight: '700', color: '#888', margin: 0 }}>METTAMALAI, SIVAKASI</p>
+          <p style={{ fontSize: '0.7rem', fontWeight: '700', color: '#888', margin: '0 0 2px' }}>METTAMALAI, SIVAKASI</p>
+          {shopSettings.gst_number && (
+            <p style={{ fontSize: '0.68rem', color: '#aaa', margin: 0 }}>GST: {shopSettings.gst_number}</p>
+          )}
         </div>
 
         <div style={{ borderTop: '2px dashed #eee', borderBottom: '2px dashed #eee', padding: '10px 0', marginBottom: '14px' }}>
@@ -166,6 +217,10 @@ const Bill = ({ bill, onClose }) => {
             <span><b>DATE:</b> {new Date(bill.orderDate).toLocaleDateString('en-IN')}</span>
           </div>
           <div style={{ fontSize: '0.85rem', fontWeight: '800' }}>CUSTOMER: {bill.customerName}</div>
+          {bill.phone && <div style={{ fontSize: '0.78rem', color: '#666' }}>📱 {bill.phone}</div>}
+          {bill.address && bill.address !== 'Provided via WhatsApp/Phone' && (
+            <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>📍 {bill.address}</div>
+          )}
         </div>
 
         <table style={{ width: '100%', fontSize: '0.82rem', marginBottom: '14px', borderCollapse: 'collapse' }}>

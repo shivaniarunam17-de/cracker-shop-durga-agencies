@@ -218,7 +218,12 @@ async function initDB() {
       { key: 'global_discount_percent', value: '0' },
       { key: 'shipping_cost', value: '100' },
       { key: 'upi_id', value: '7604849468@gpay' },
-      { key: 'whatsapp_number', value: '917604849468' }
+      { key: 'admin_whatsapp_number', value: process.env.ADMIN_PHONE || '917604849468' },
+      // Business info for bill / website
+      { key: 'shop_phone', value: '+91 76048 49468, +91 91760 48494' },
+      { key: 'shop_address', value: '2/553D, Mettamalai, Sivakasi - 626 230' },
+      { key: 'shop_email', value: 'durgaagenciessvk@gmail.com' },
+      { key: 'gst_number', value: '' }
     ];
 
     for (const setting of defaultSettings) {
@@ -365,6 +370,17 @@ app.get('/qr', (req, res) => {
 });
 
 
+// WhatsApp Status API — used by Admin Panel WhatsApp tab
+app.get('/api/whatsapp/status', (req, res) => {
+  if (whatsappClientReady) {
+    return res.json({ connected: true, qr: null });
+  }
+  if (latestQrCode) {
+    return res.json({ connected: false, qr: latestQrCode });
+  }
+  res.json({ connected: false, qr: null }); // still initializing
+});
+
 // 1. Get all products
 app.get('/api/products', async (req, res) => {
   try {
@@ -409,34 +425,68 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json({ message: 'Order Placed!', bill });
 
     // Background WhatsApp notification task
-    if (whatsappClientReady && phone) {
-      setTimeout(() => {
-        try {
-          // Format customer phone
-          let formattedPhone = phone.replace(/\D/g, '');
-          if (formattedPhone.length === 10) formattedPhone = `91${formattedPhone}`;
-          const customerChatId = `${formattedPhone}@c.us`;
+    // Always attempt — logs a warning if WA not ready, so admin knows to scan QR
+    setTimeout(async () => {
+      try {
+        // Fetch admin whatsapp number from settings (consistent key: admin_whatsapp_number)
+        const [settingsRows] = await db.query("SELECT `value` FROM settings WHERE `key` = 'admin_whatsapp_number'");
+        const adminNumRaw = (settingsRows && settingsRows.length > 0)
+          ? settingsRows[0].value
+          : (process.env.ADMIN_PHONE || '917604849468');
 
-          // Format admin phone
-          const adminNumber = process.env.WHATSAPP_NUMBER || '917604849468';
-          const adminChatId = `${adminNumber}@c.us`;
+        // Format customer phone (10-digit → add 91 prefix)
+        let formattedPhone = phone ? phone.replace(/\D/g, '') : '';
+        if (formattedPhone.length === 10) formattedPhone = `91${formattedPhone}`;
+        const customerChatId = `${formattedPhone}@c.us`;
 
-          const itemsList = items.map(i => `- ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('\n');
-          
-          const customerMsg = `🎉 *Thank You for your Order!* 🎉\n\nHi ${customerName},\nWe have successfully received your order at *DURGA AGENCIES*.\n\n📦 *Order ID:* #${billNumber}\n💰 *Total Amount:* Rs.${totalAmount}\n📍 *Delivery Address:* ${address}\n\n*Items Ordered:*\n${itemsList}\n\n⚠️ *Payment Instructions:*\nTo confirm and process your order, please complete your UPI payment of *Rs.${totalAmount}* to our UPI ID: *${process.env.UPI_ID || '7604849468@gpay'}*\n\n_Please reply to this message with your payment screenshot._\n\nThank you! 🪔`;
-          
-          const adminMsg = `🚨 *NEW ORDER ALERT* 🚨\n\n📦 *Order ID:* #${billNumber}\n👤 *Customer:* ${customerName}\n📱 *Phone:* ${phone}\n💰 *Total:* Rs.${totalAmount}\n📍 *Address:* ${address}\n\n*Items:*\n${itemsList}\n\n_Auto-message sent to customer for payment._`;
+        // Format admin phone
+        let adminNumber = adminNumRaw.replace(/\D/g, '');
+        if (adminNumber.length === 10) adminNumber = `91${adminNumber}`;
+        const adminChatId = `${adminNumber}@c.us`;
 
-          // Send to Customer
-          whatsappClient.sendMessage(customerChatId, customerMsg).catch(e => console.error("WA Send Error (Customer):", e));
-          
-          // Send to Admin
-          whatsappClient.sendMessage(adminChatId, adminMsg).catch(e => console.error("WA Send Error (Admin):", e));
-        } catch (e) {
-          console.error("WhatsApp Message Processing Error:", e);
+        const itemsList = items.map(i => `  • ${i.name} x${i.qty} = ₹${(i.price * i.qty).toFixed(2)}`).join('\n');
+
+        const customerMsg =
+          `🎉 *ஆர்டர் கிடைத்தது! Order Received!* 🎉\n\n` +
+          `வணக்கம் ${customerName},\n` +
+          `உங்கள் ஆர்டர் *DURGA AGENCIES*-ல் வெற்றிகரமாக பதிவாகியது.\n\n` +
+          `💰 *Total Amount:* ₹${totalAmount}\n\n` +
+          `*Items Ordered:*\n${itemsList}\n\n` +
+          `⚠️ *Payment Instructions:*\n` +
+          `நாங்கள் விரைவில் உங்களை தொடர்பு கொண்டு payment விவரங்களை தெரிவிப்போம்.\n\n` +
+          `நன்றி! 🪔 Durga Agencies`;
+
+        const adminMsg =
+          `🚨 *புதிய ஆர்டர் வந்தது! NEW ORDER* 🚨\n\n` +
+          `📦 *Order ID:* #${billNumber}\n` +
+          `👤 *Customer:* ${customerName}\n` +
+          `📱 *Phone:* ${phone}\n` +
+          `💰 *Total:* ₹${totalAmount}\n` +
+          `📍 *Address:* ${address}\n\n` +
+          `*Items Ordered:*\n${itemsList}\n\n` +
+          `_Customer-க்கு auto-message அனுப்பப்பட்டது._`;
+
+        if (!whatsappClientReady) {
+          console.warn('⚠️  WhatsApp not connected — order saved to DB but WA messages NOT sent. Scan QR at /qr to connect.');
+          return;
         }
-      }, 1000);
-    }
+
+        // Send to Customer (only if phone provided)
+        if (formattedPhone.length >= 12) {
+          whatsappClient.sendMessage(customerChatId, customerMsg)
+            .then(() => console.log(`✅ WA sent to customer ${formattedPhone}`))
+            .catch(e => console.error('WA Send Error (Customer):', e.message));
+        }
+
+        // Send to Admin
+        whatsappClient.sendMessage(adminChatId, adminMsg)
+          .then(() => console.log(`✅ WA sent to admin ${adminNumber}`))
+          .catch(e => console.error('WA Send Error (Admin):', e.message));
+
+      } catch (e) {
+        console.error('WhatsApp Message Processing Error:', e);
+      }
+    }, 1500);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -818,6 +868,49 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
     }
     res.json({ message: 'Settings updated successfully!' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Send a context-aware WhatsApp message to customer based on order status
+app.post('/api/admin/orders/:id/send-whatsapp', authenticateAdmin, async (req, res) => {
+  try {
+    const { messageType } = req.body; // 'payment_request' | 'packing' | 'dispatched' | 'generic'
+    const [orders] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    if (!orders.length) return res.status(404).json({ error: 'Order not found' });
+    const order = orders[0];
+    const [items] = await db.query('SELECT * FROM order_items WHERE orderId = ?', [order.id]);
+
+    const [settingsRows] = await db.query("SELECT * FROM settings WHERE `key` IN ('upi_id', 'upi_name')");
+    const settingsMap = {};
+    settingsRows.forEach(r => { settingsMap[r.key] = r.value; });
+    const upiId = settingsMap.upi_id || '7604849468@gpay';
+    const upiName = settingsMap.upi_name || 'Durga Agencies';
+
+    if (!whatsappClientReady) return res.status(503).json({ error: 'WhatsApp not connected. Scan QR at /qr' });
+    if (!order.phone) return res.status(400).json({ error: 'No phone number for this customer.' });
+
+    let formattedPhone = order.phone.replace(/\D/g, '');
+    if (formattedPhone.length === 10) formattedPhone = `91${formattedPhone}`;
+    const customerChatId = `${formattedPhone}@c.us`;
+    const itemsList = items.map(i => `  - ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('\n');
+    const billNumber = order.billNumber || order.id;
+    let message = '';
+
+    if (messageType === 'payment_request') {
+      message = `🎉 *DURGA AGENCIES — Order Confirmed!*\n\nHi *${order.customerName}*,\n\nThank you for your order! ✅\n\n📦 *Order ID:* #${billNumber}\n💰 *Total Amount:* Rs.${order.totalAmount}\n\n*Your Order:*\n${itemsList}\n\n---\n💳 *PAYMENT INSTRUCTIONS*\n\nPlease pay *Rs.${order.totalAmount}* via any UPI app:\n🔹 UPI ID: *${upiId}*\n🔹 Name: ${upiName}\n\n⚠️ After payment, please send the screenshot as a reply to this message. Your parcel will be dispatched only after payment confirmation.\n\nThank you! 🙏🪔`;
+    } else if (messageType === 'packing') {
+      message = `📦 *DURGA AGENCIES — Payment Confirmed!*\n\nHi *${order.customerName}*,\n\nYour payment has been confirmed. We are now *PACKING your order!* 🎉\n\n📦 *Order ID:* #${billNumber}\n💰 *Amount Paid:* Rs.${order.totalAmount}\n\nWe will notify you once dispatched.\n${order.deliveryNote ? `\n📋 *Note:* ${order.deliveryNote}` : ''}\n\nThank you for choosing Durga Agencies! 🪔`;
+    } else if (messageType === 'dispatched') {
+      message = `🚚 *DURGA AGENCIES — Parcel Dispatched!*\n\nHi *${order.customerName}*,\n\nYour order has been *DISPATCHED* and is on its way! 🎉\n\n📦 *Order ID:* #${billNumber}\n📍 *Delivery Address:* ${order.address}\n${order.deliveryNote ? `\n🚚 *Van Info:* ${order.deliveryNote}` : ''}\n\n⚠️ Delivery charges are on a To-Pay basis. Please pay the lorry transport office on collection.\n\nThank you! 🪔`;
+    } else {
+      message = `📋 *DURGA AGENCIES — Order Update*\n\nHi *${order.customerName}*,\n\n*Order ID:* #${billNumber}\n*Status:* ${order.orderStatus || 'Pending Payment'}\n${order.deliveryNote ? `\n*Note:* ${order.deliveryNote}` : ''}\n\nFor queries, reply to this message.\n\nThank you! 🪔`;
+    }
+
+    await whatsappClient.sendMessage(customerChatId, message);
+    res.json({ success: true, message: 'WhatsApp message sent!' });
+  } catch (err) {
+    console.error('WhatsApp Send Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
