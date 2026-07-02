@@ -1704,7 +1704,6 @@ const AdminPortal = ({ isAdminAuthenticated, setIsAdminAuthenticated, adminPassw
           <AdminMenuItem icon={<Inbox size={20} />} label="Full Inventory" active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setSidebarOpen(false); }} />
           <AdminMenuItem icon={<Wand2 size={20} />} label="Bulk Operations" active={activeTab === 'bulk'} onClick={() => { setActiveTab('bulk'); setSidebarOpen(false); }} />
           <AdminMenuItem icon={<Calendar size={20} />} label="Order Sessions" active={activeTab === 'sessions'} onClick={() => { setActiveTab('sessions'); setSidebarOpen(false); }} />
-          <AdminMenuItem icon={<MessageCircle size={20} />} label="WhatsApp" active={activeTab === 'whatsapp'} onClick={() => { setActiveTab('whatsapp'); setSidebarOpen(false); }} />
           <AdminMenuItem icon={<Settings size={20} />} label="Settings" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }} />
           <div style={{ flex: 1 }}></div>
           <AdminMenuItem icon={<Home size={20} />} label="Exit to Store" onClick={() => { setParentView('shop'); setSidebarOpen(false); }} />
@@ -1725,7 +1724,6 @@ const AdminPortal = ({ isAdminAuthenticated, setIsAdminAuthenticated, adminPassw
         {activeTab === 'orders' && <OrdersPanel orders={orders} setLastBill={setLastBill} fetchOrders={fetchOrders} />}
         {activeTab === 'bulk' && <BulkPanel products={products} fetchProducts={fetchProducts} />}
         {activeTab === 'sessions' && <SessionsPanel />}
-        {activeTab === 'whatsapp' && <WhatsAppPanel />}
         {activeTab === 'settings' && <SettingsPanel />}
       </main>
     </div>
@@ -2174,35 +2172,18 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
   };
 
   const sendWhatsApp = async (o, messageType) => {
-    const oid = o.id || o._id;
-    setWaSending(prev => ({ ...prev, [oid + messageType]: true }));
-    try {
-      const token = localStorage.getItem('adminToken');
-      await axios.post(`${API_BASE}/admin/orders/${oid}/send-whatsapp`, { messageType }, { headers: { Authorization: `Bearer ${token}` } });
-      alert(`✅ WhatsApp message sent to ${o.customerName}!`);
-    } catch (e) {
-      // Fallback: open wa.me link if server WhatsApp not connected
-      const errorMsg = e.response?.data?.error || '';
-      if (errorMsg.includes('not connected') || e.response?.status === 503) {
-        // Build fallback wa.me link
-        let msg = '';
-        if (messageType === 'payment_request') {
-          const items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
-          const itemsList = items.map(i => `- ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('%0A');
-          msg = `*DURGA AGENCIES — Order Confirmed!*%0A%0AHi *${o.customerName}*,%0A%0A📦 Order ID: %23${o.billNumber || o.id}%0A💰 Total: Rs.${o.totalAmount}%0A%0AItems:%0A${itemsList}%0A%0A💳 Please pay Rs.${o.totalAmount} to our UPI ID and send us the screenshot on WhatsApp.%0A%0AThank you! 🙏🪔`;
-        } else if (messageType === 'packing') {
-          msg = `*DURGA AGENCIES — Payment Confirmed!*%0A%0AHi *${o.customerName}*,%0AYour payment is confirmed. We are now PACKING your order! 🎉%0A%0AOrder ID: %23${o.billNumber || o.id}%0AAmount: Rs.${o.totalAmount}%0A%0AThank you! 🪔`;
-        } else if (messageType === 'dispatched') {
-          msg = `*DURGA AGENCIES — Parcel Dispatched!*%0A%0AHi *${o.customerName}*,%0AYour order has been DISPATCHED! 🚚%0A%0AOrder ID: %23${o.billNumber || o.id}${o.deliveryNote ? `%0AVan Info: ${o.deliveryNote}` : ''}%0A%0AThank you! 🪔`;
-        }
-        const phone = (o.phone || '').replace(/\D/g, '');
-        window.open(`https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${msg}`, '_blank');
-      } else {
-        alert('Failed: ' + errorMsg);
-      }
-    } finally {
-      setWaSending(prev => { const n = { ...prev }; delete n[oid + messageType]; return n; });
+    let msg = '';
+    if (messageType === 'payment_request') {
+      const items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
+      const itemsList = items.map(i => `- ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('%0A');
+      msg = `*DURGA AGENCIES — Order Confirmed!*%0A%0AHi *${o.customerName}*,%0A%0A📦 Order ID: %23${o.billNumber || o.id}%0A💰 Total: Rs.${o.totalAmount}%0A%0AItems:%0A${itemsList}%0A%0A💳 Please pay Rs.${o.totalAmount} to our UPI ID and send us the screenshot on WhatsApp.%0A%0AThank you! 🙏🪔`;
+    } else if (messageType === 'packing') {
+      msg = `*DURGA AGENCIES — Payment Confirmed!*%0A%0AHi *${o.customerName}*,%0AYour payment is confirmed. We are now PACKING your order! 🎉%0A%0AOrder ID: %23${o.billNumber || o.id}%0AAmount: Rs.${o.totalAmount}%0A%0AThank you! 🪔`;
+    } else if (messageType === 'dispatched') {
+      msg = `*DURGA AGENCIES — Parcel Dispatched!*%0A%0AHi *${o.customerName}*,%0AYour order has been DISPATCHED! 🚚%0A%0AOrder ID: %23${o.billNumber || o.id}${o.deliveryNote ? `%0AVan Info: ${o.deliveryNote}` : ''}%0A%0AThank you! 🪔`;
     }
+    const phone = (o.phone || '').replace(/\D/g, '');
+    window.open(`https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${msg}`, '_blank');
   };
 
   const getSmartActions = (o) => {
@@ -2653,135 +2634,6 @@ const SettingsPanel = () => {
   );
 };
 
-// ── WhatsApp Panel ──────────────────────────────────────────────
-const WhatsAppPanel = () => {
-  const [status, setStatus] = useState('loading'); // 'loading' | 'connected' | 'qr'
-  const [qrUrl, setQrUrl] = useState('');
-  const [iframeKey, setIframeKey] = useState(0);
 
-  const checkStatus = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/whatsapp/status`);
-      if (res.data.connected) {
-        setStatus('connected');
-      } else if (res.data.qr) {
-        setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(res.data.qr)}`);
-        setStatus('qr');
-      } else {
-        setStatus('loading');
-      }
-    } catch {
-      // Fallback: show iframe of /qr page
-      setStatus('iframe');
-    }
-  };
-
-  useEffect(() => {
-    checkStatus();
-    const interval = setInterval(() => {
-      checkStatus();
-      setIframeKey(k => k + 1); // refresh iframe every 10s
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="fade-in" style={{ maxWidth: '600px' }}>
-      {/* Status Badge */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '12px',
-        background: status === 'connected' ? '#f0fdf4' : '#fffbeb',
-        border: `2px solid ${status === 'connected' ? '#22c55e' : '#f59e0b'}`,
-        borderRadius: '16px', padding: '1rem 1.5rem', marginBottom: '2rem'
-      }}>
-        <div style={{
-          width: '14px', height: '14px', borderRadius: '50%',
-          background: status === 'connected' ? '#22c55e' : '#f59e0b',
-          boxShadow: `0 0 8px ${status === 'connected' ? '#22c55e' : '#f59e0b'}`,
-          animation: status !== 'connected' ? 'pulse 1.5s infinite' : 'none'
-        }} />
-        <div>
-          <div style={{ fontWeight: '800', fontSize: '1rem', color: '#121212' }}>
-            {status === 'connected' ? '✅ WhatsApp Connected!' :
-             status === 'qr' ? '📱 Scan QR Code to Connect' :
-             '🔄 WhatsApp Starting...'}
-          </div>
-          <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
-            {status === 'connected'
-              ? 'Auto-messages will be sent to customers & admin on every order.'
-              : 'Scan the QR code below with your WhatsApp to enable auto-messages.'}
-          </div>
-        </div>
-      </div>
-
-      {/* QR / Connected View */}
-      {status === 'connected' ? (
-        <div style={{
-          background: '#f0fdf4', border: '2px solid #22c55e',
-          borderRadius: '20px', padding: '3rem', textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '4rem' }}>✅</div>
-          <h3 style={{ margin: '1rem 0 0.5rem', color: '#16a34a', fontWeight: '900' }}>WhatsApp Ready!</h3>
-          <p style={{ color: '#555', fontSize: '0.9rem' }}>
-            Your WhatsApp is successfully connected.<br />
-            When an order is placed, messages will be automatically sent to both the <b>customer &amp; admin</b>.
-          </p>
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center' }}>
-          {/* Instructions */}
-          <div style={{
-            background: '#fff', border: '1px solid #e2e8f0',
-            borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem',
-            textAlign: 'left'
-          }}>
-            <h4 style={{ margin: '0 0 1rem', fontWeight: '800', color: '#121212' }}>📱 How to Connect?</h4>
-            <ol style={{ margin: 0, paddingLeft: '1.2rem', lineHeight: '2', color: '#444', fontSize: '0.9rem' }}>
-              <li>Open <b>WhatsApp</b> on your phone</li>
-              <li><b>⋮ (3 dots) → Linked Devices → Link a Device</b></li>
-              <li>Camera will open → <b>Scan the QR code below</b></li>
-              <li>Once scanned, this page will <b>auto-refresh</b> ✅</li>
-            </ol>
-          </div>
-
-          {/* QR Code from iframe */}
-          <div style={{
-            background: '#fff', border: '2px solid #e2e8f0',
-            borderRadius: '20px', padding: '1rem', display: 'inline-block',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
-          }}>
-            {qrUrl ? (
-              <img src={qrUrl} alt="WhatsApp QR Code" style={{ width: '280px', height: '280px', display: 'block', borderRadius: '8px' }} />
-            ) : (
-              <iframe
-                key={iframeKey}
-                src={`${API_BASE.replace('/api', '')}/qr`}
-                style={{
-                  width: '360px', height: '420px', border: 'none',
-                  borderRadius: '12px', display: 'block'
-                }}
-                title="WhatsApp QR"
-              />
-            )}
-          </div>
-
-          <p style={{ color: '#888', fontSize: '0.8rem', marginTop: '1rem' }}>
-            ⏱ QR code expires in 20 seconds — page will auto-refresh
-          </p>
-          <button
-            onClick={() => { checkStatus(); setIframeKey(k => k + 1); }}
-            style={{
-              marginTop: '0.5rem', background: '#25D366', color: '#fff',
-              border: 'none', borderRadius: '10px', padding: '0.7rem 1.5rem',
-              fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
-            }}
-          >
-            🔄 Refresh QR
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export default App;

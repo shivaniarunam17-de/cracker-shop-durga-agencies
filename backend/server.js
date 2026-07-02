@@ -6,9 +6,6 @@ import multer from 'multer';
 import csvParser from 'csv-parser';
 import fs from 'fs';
 import crypto from 'crypto';
-import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
-import qrcode from 'qrcode-terminal';
 
 dotenv.config();
 
@@ -272,114 +269,7 @@ async function initDB() {
 
 initDB();
 
-let whatsappClientReady = false;
-let latestQrCode = null;
-const whatsappClient = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-});
-
-whatsappClient.on('qr', (qr) => {
-    latestQrCode = qr;
-    console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP TO ENABLE AUTO-MESSAGES:');
-    qrcode.generate(qr, {small: true});
-});
-
-whatsappClient.on('ready', () => {
-    console.log('✅ WhatsApp Web Client is READY! Auto-messaging is active.');
-    whatsappClientReady = true;
-    latestQrCode = null;
-});
-
-whatsappClient.initialize().catch(err => console.error("WhatsApp Init Error:", err));
-
 // --- ROUTES ---
-
-// Expose QR code endpoint for easy scan
-app.get('/qr', (req, res) => {
-    if (whatsappClientReady) {
-        return res.send(`
-            <html>
-                <head>
-                    <title>WhatsApp Status</title>
-                    <style>
-                        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
-                        .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                        .status { color: #2ecc71; font-weight: bold; font-size: 24px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <h2>WhatsApp Status</h2>
-                        <p class="status">✅ Connected & Ready!</p>
-                        <p>Your WhatsApp account is successfully linked and active.</p>
-                    </div>
-                </body>
-            </html>
-        `);
-    }
-
-    if (!latestQrCode) {
-        return res.send(`
-            <html>
-                <head>
-                    <title>WhatsApp Status</title>
-                    <style>
-                        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
-                        .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                        .status { color: #e67e22; font-weight: bold; font-size: 18px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <h2>WhatsApp Status</h2>
-                        <p class="status">🔄 Generating QR code...</p>
-                        <p>The server is starting or generating the WhatsApp session. Please refresh this page in a few seconds.</p>
-                    </div>
-                </body>
-            </html>
-        `);
-    }
-
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQrCode)}`;
-    res.send(`
-        <html>
-            <head>
-                <title>Scan WhatsApp QR Code</title>
-                <style>
-                    body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f6f9; color: #333; }
-                    .card { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                    img { margin: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
-                    p { color: #666; }
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <h2>Scan to Link WhatsApp</h2>
-                    <p>Open WhatsApp on your phone, go to Linked Devices, and scan this QR code:</p>
-                    <img src="${qrImageUrl}" alt="WhatsApp QR Code" />
-                    <br/>
-                    <p>Refresh this page if the scan fails or the code expires.</p>
-                </div>
-            </body>
-        </html>
-    `);
-});
-
-
-// WhatsApp Status API — used by Admin Panel WhatsApp tab
-app.get('/api/whatsapp/status', (req, res) => {
-  if (whatsappClientReady) {
-    return res.json({ connected: true, qr: null });
-  }
-  if (latestQrCode) {
-    return res.json({ connected: false, qr: latestQrCode });
-  }
-  res.json({ connected: false, qr: null }); // still initializing
-});
 
 // 1. Get all products
 app.get('/api/products', async (req, res) => {
@@ -424,69 +314,7 @@ app.post('/api/orders', async (req, res) => {
     const bill = { billNumber, orderId, customerName, phone, address, items, totalAmount, originalTotal, savings, orderType: 'online', orderDate: new Date() };
     res.status(201).json({ message: 'Order Placed!', bill });
 
-    // Background WhatsApp notification task
-    // Always attempt — logs a warning if WA not ready, so admin knows to scan QR
-    setTimeout(async () => {
-      try {
-        // Fetch admin whatsapp number from settings (consistent key: admin_whatsapp_number)
-        const [settingsRows] = await db.query("SELECT `value` FROM settings WHERE `key` = 'admin_whatsapp_number'");
-        const adminNumRaw = (settingsRows && settingsRows.length > 0)
-          ? settingsRows[0].value
-          : (process.env.ADMIN_PHONE || '917604849468');
 
-        // Format customer phone (10-digit → add 91 prefix)
-        let formattedPhone = phone ? phone.replace(/\D/g, '') : '';
-        if (formattedPhone.length === 10) formattedPhone = `91${formattedPhone}`;
-        const customerChatId = `${formattedPhone}@c.us`;
-
-        // Format admin phone
-        let adminNumber = adminNumRaw.replace(/\D/g, '');
-        if (adminNumber.length === 10) adminNumber = `91${adminNumber}`;
-        const adminChatId = `${adminNumber}@c.us`;
-
-        const itemsList = items.map(i => `  • ${i.name} x${i.qty} = ₹${(i.price * i.qty).toFixed(2)}`).join('\n');
-
-        const customerMsg =
-          `🎉 *ஆர்டர் கிடைத்தது! Order Received!* 🎉\n\n` +
-          `வணக்கம் ${customerName},\n` +
-          `உங்கள் ஆர்டர் *DURGA AGENCIES*-ல் வெற்றிகரமாக பதிவாகியது.\n\n` +
-          `💰 *Total Amount:* ₹${totalAmount}\n\n` +
-          `*Items Ordered:*\n${itemsList}\n\n` +
-          `⚠️ *Payment Instructions:*\n` +
-          `நாங்கள் விரைவில் உங்களை தொடர்பு கொண்டு payment விவரங்களை தெரிவிப்போம்.\n\n` +
-          `நன்றி! 🪔 Durga Agencies`;
-
-        const adminMsg =
-          `🚨 *புதிய ஆர்டர் வந்தது! NEW ORDER* 🚨\n\n` +
-          `📦 *Order ID:* #${billNumber}\n` +
-          `👤 *Customer:* ${customerName}\n` +
-          `📱 *Phone:* ${phone}\n` +
-          `💰 *Total:* ₹${totalAmount}\n` +
-          `📍 *Address:* ${address}\n\n` +
-          `*Items Ordered:*\n${itemsList}\n\n` +
-          `_Customer-க்கு auto-message அனுப்பப்பட்டது._`;
-
-        if (!whatsappClientReady) {
-          console.warn('⚠️  WhatsApp not connected — order saved to DB but WA messages NOT sent. Scan QR at /qr to connect.');
-          return;
-        }
-
-        // Send to Customer (only if phone provided)
-        if (formattedPhone.length >= 12) {
-          whatsappClient.sendMessage(customerChatId, customerMsg)
-            .then(() => console.log(`✅ WA sent to customer ${formattedPhone}`))
-            .catch(e => console.error('WA Send Error (Customer):', e.message));
-        }
-
-        // Send to Admin
-        whatsappClient.sendMessage(adminChatId, adminMsg)
-          .then(() => console.log(`✅ WA sent to admin ${adminNumber}`))
-          .catch(e => console.error('WA Send Error (Admin):', e.message));
-
-      } catch (e) {
-        console.error('WhatsApp Message Processing Error:', e);
-      }
-    }, 1500);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -872,48 +700,7 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Admin: Send a context-aware WhatsApp message to customer based on order status
-app.post('/api/admin/orders/:id/send-whatsapp', authenticateAdmin, async (req, res) => {
-  try {
-    const { messageType } = req.body; // 'payment_request' | 'packing' | 'dispatched' | 'generic'
-    const [orders] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
-    if (!orders.length) return res.status(404).json({ error: 'Order not found' });
-    const order = orders[0];
-    const [items] = await db.query('SELECT * FROM order_items WHERE orderId = ?', [order.id]);
 
-    const [settingsRows] = await db.query("SELECT * FROM settings WHERE `key` IN ('upi_id', 'upi_name')");
-    const settingsMap = {};
-    settingsRows.forEach(r => { settingsMap[r.key] = r.value; });
-    const upiId = settingsMap.upi_id || '7604849468@gpay';
-    const upiName = settingsMap.upi_name || 'Durga Agencies';
-
-    if (!whatsappClientReady) return res.status(503).json({ error: 'WhatsApp not connected. Scan QR at /qr' });
-    if (!order.phone) return res.status(400).json({ error: 'No phone number for this customer.' });
-
-    let formattedPhone = order.phone.replace(/\D/g, '');
-    if (formattedPhone.length === 10) formattedPhone = `91${formattedPhone}`;
-    const customerChatId = `${formattedPhone}@c.us`;
-    const itemsList = items.map(i => `  - ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('\n');
-    const billNumber = order.billNumber || order.id;
-    let message = '';
-
-    if (messageType === 'payment_request') {
-      message = `🎉 *DURGA AGENCIES — Order Confirmed!*\n\nHi *${order.customerName}*,\n\nThank you for your order! ✅\n\n📦 *Order ID:* #${billNumber}\n💰 *Total Amount:* Rs.${order.totalAmount}\n\n*Your Order:*\n${itemsList}\n\n---\n💳 *PAYMENT INSTRUCTIONS*\n\nPlease pay *Rs.${order.totalAmount}* via any UPI app:\n🔹 UPI ID: *${upiId}*\n🔹 Name: ${upiName}\n\n⚠️ After payment, please send the screenshot as a reply to this message. Your parcel will be dispatched only after payment confirmation.\n\nThank you! 🙏🪔`;
-    } else if (messageType === 'packing') {
-      message = `📦 *DURGA AGENCIES — Payment Confirmed!*\n\nHi *${order.customerName}*,\n\nYour payment has been confirmed. We are now *PACKING your order!* 🎉\n\n📦 *Order ID:* #${billNumber}\n💰 *Amount Paid:* Rs.${order.totalAmount}\n\nWe will notify you once dispatched.\n${order.deliveryNote ? `\n📋 *Note:* ${order.deliveryNote}` : ''}\n\nThank you for choosing Durga Agencies! 🪔`;
-    } else if (messageType === 'dispatched') {
-      message = `🚚 *DURGA AGENCIES — Parcel Dispatched!*\n\nHi *${order.customerName}*,\n\nYour order has been *DISPATCHED* and is on its way! 🎉\n\n📦 *Order ID:* #${billNumber}\n📍 *Delivery Address:* ${order.address}\n${order.deliveryNote ? `\n🚚 *Van Info:* ${order.deliveryNote}` : ''}\n\n⚠️ Delivery charges are on a To-Pay basis. Please pay the lorry transport office on collection.\n\nThank you! 🪔`;
-    } else {
-      message = `📋 *DURGA AGENCIES — Order Update*\n\nHi *${order.customerName}*,\n\n*Order ID:* #${billNumber}\n*Status:* ${order.orderStatus || 'Pending Payment'}\n${order.deliveryNote ? `\n*Note:* ${order.deliveryNote}` : ''}\n\nFor queries, reply to this message.\n\nThank you! 🪔`;
-    }
-
-    await whatsappClient.sendMessage(customerChatId, message);
-    res.json({ success: true, message: 'WhatsApp message sent!' });
-  } catch (err) {
-    console.error('WhatsApp Send Error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
