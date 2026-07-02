@@ -2195,7 +2195,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
       actions.push(
         <button key="pay" onClick={() => sendWhatsApp(o, 'payment_request')} disabled={waSending[oid + 'payment_request']}
           style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: waSending[oid + 'payment_request'] ? 0.7 : 1 }}>
-          💸 {waSending[oid + 'payment_request'] ? 'Sending...' : 'Send Payment Request'}
+          <MessageCircle size={16} /> {waSending[oid + 'payment_request'] ? 'Opening...' : 'WhatsApp: Payment Request'}
         </button>
       );
     }
@@ -2203,7 +2203,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
       actions.push(
         <button key="pack" onClick={() => sendWhatsApp(o, 'packing')} disabled={waSending[oid + 'packing']}
           style={{ background: '#7B1FA2', color: 'white', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: waSending[oid + 'packing'] ? 0.7 : 1 }}>
-          📦 {waSending[oid + 'packing'] ? 'Sending...' : 'Notify: Packing Started'}
+          <MessageCircle size={16} /> {waSending[oid + 'packing'] ? 'Opening...' : 'WhatsApp: Packing Started'}
         </button>
       );
     }
@@ -2211,7 +2211,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
       actions.push(
         <button key="dispatch" onClick={() => sendWhatsApp(o, 'dispatched')} disabled={waSending[oid + 'dispatched']}
           style={{ background: '#0288D1', color: 'white', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: waSending[oid + 'dispatched'] ? 0.7 : 1 }}>
-          🚚 {waSending[oid + 'dispatched'] ? 'Sending...' : 'Notify: Dispatched'}
+          <MessageCircle size={16} /> {waSending[oid + 'dispatched'] ? 'Opening...' : 'WhatsApp: Dispatched'}
         </button>
       );
     }
@@ -2220,7 +2220,7 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
     actions.push(
       <button key="generic" onClick={() => sendWhatsApp(o, 'generic')} disabled={waSending[oid + 'generic']}
         style={{ background: '#128C7E', color: 'white', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: waSending[oid + 'generic'] ? 0.7 : 1 }}>
-        📋 {waSending[oid + 'generic'] ? 'Sending...' : 'Send Status Update'}
+        <MessageCircle size={16} /> {waSending[oid + 'generic'] ? 'Opening...' : 'WhatsApp: Status Update'}
       </button>
     );
 
