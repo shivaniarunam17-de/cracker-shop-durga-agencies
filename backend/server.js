@@ -271,10 +271,25 @@ initDB();
 
 // --- ROUTES ---
 
+// Simple in-memory cache for products
+let productsCache = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache duration
+
+// 0. Ping route to keep server awake
+app.get('/api/ping', (req, res) => res.send('pong'));
+
 // 1. Get all products
 app.get('/api/products', async (req, res) => {
   try {
+    // Return from cache if valid
+    if (productsCache && (Date.now() - lastCacheTime < CACHE_DURATION)) {
+      return res.json(productsCache);
+    }
+    
     const [rows] = await db.query('SELECT * FROM products');
+    productsCache = rows; // Store in cache
+    lastCacheTime = Date.now();
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -309,6 +324,8 @@ app.post('/api/orders', async (req, res) => {
         [item.qty, item.id || item._id]
       );
     }
+    
+    productsCache = null; // Invalidate cache so frontend gets updated stock
 
     // Return full bill data
     const bill = { billNumber, orderId, customerName, phone, address, items, totalAmount, originalTotal, savings, orderType: 'online', orderDate: new Date() };
@@ -350,6 +367,8 @@ app.post('/api/admin/walkin-order', authenticateAdmin, async (req, res) => {
         );
       }
     }
+    
+    productsCache = null; // Invalidate cache so frontend gets updated stock
 
     const bill = { billNumber, orderId, customerName: customerName || 'Walk-in Customer', phone, address, items, totalAmount, originalTotal, savings, orderType: 'walkin', orderDate: new Date(), paymentMethod: paymentMethod || 'Cash' };
     res.status(201).json({ message: 'Walk-in Bill Created!', bill });
@@ -430,6 +449,7 @@ app.post('/api/admin/add-product', authenticateAdmin, async (req, res) => {
       'INSERT INTO products (name, category, price, originalPrice, offer, image, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, category, fixedPrice, fakeMRP, offerPercent, image || '', stock || 100]
     );
+    productsCache = null; // Clear cache
     res.json({ message: 'Product added successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -462,6 +482,7 @@ app.patch('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
     params.push(req.params.id);
     
     await db.execute(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`, params);
+    productsCache = null; // Clear cache
     res.json({ message: 'Product updated successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -514,6 +535,7 @@ app.post('/api/admin/upload-csv', authenticateAdmin, upload.single('file'), asyn
         `;
         await db.query(query, [productsToUpdate]);
         
+        productsCache = null; // Clear cache
         fs.unlinkSync(filePath);
         res.json({ message: 'Sync Successful!', count: productsToUpdate.length });
       } catch (err) {
@@ -552,6 +574,7 @@ app.post('/api/admin/bulk-link-images', authenticateAdmin, upload.array('images'
       if (result.affectedRows > 0) updatedCount++;
     }
 
+    productsCache = null; // Clear cache
     res.json({ message: `Magic Match Complete! Linked ${updatedCount} products.`, count: updatedCount });
   } catch (err) {
     console.error("Bulk Photo Link Error:", err);
@@ -643,6 +666,7 @@ app.delete('/api/admin/sessions/:id', authenticateAdmin, async (req, res) => {
 app.delete('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
   try {
     await db.execute('DELETE FROM products WHERE id = ?', [req.params.id]);
+    productsCache = null; // Clear cache
     res.json({ message: 'Product deleted successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
