@@ -1889,8 +1889,8 @@ const InventoryPanel = ({ products, fetchProducts, dynamicCategories }) => {
 
       {/* SUMMARY WIDGETS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '1.2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
-          <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#888', letterSpacing: '1px' }}>TOTAL PRODUCTS</span>
+        <div onClick={() => setStockFilter('all')} style={{ background: stockFilter === 'all' ? '#f8fafc' : '#ffffff', border: stockFilter === 'all' ? '2px solid #8B0000' : '1px solid #e2e8f0', borderRadius: '18px', padding: '1.2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: '800', color: stockFilter === 'all' ? '#8B0000' : '#888', letterSpacing: '1px' }}>TOTAL PRODUCTS</span>
           <span style={{ fontSize: '1.8rem', fontWeight: '900', color: '#121212' }}>{totalItems}</span>
         </div>
         <div onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')} style={{ background: '#fffbeb', border: stockFilter === 'low' ? '2px solid #dd6b20' : '1px solid #fde68a', borderRadius: '18px', padding: '1.2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(221,107,32,0.02)' }}>
