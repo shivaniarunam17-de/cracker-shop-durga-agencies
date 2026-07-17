@@ -2176,11 +2176,11 @@ const OrdersPanel = ({ orders, fetchOrders }) => {
     if (messageType === 'payment_request') {
       const items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
       const itemsList = items.map(i => `- ${i.name} x ${i.qty} = Rs.${i.price * i.qty}`).join('%0A');
-      msg = `*DURGA AGENCIES — Order Received!*%0A%0AHi *${o.customerName}*,%0A%0ATotal: Rs.${o.totalAmount}%0A%0A*Items:*%0A${itemsList}%0A%0APlease reply with "YES" to confirm your order.%0AWe will guide you with the payment details after your confirmation.%0A%0AThank you!`;
+      msg = `*DURGA AGENCIES — Order Received!*%0A%0AHi ${o.customerName},%0A%0ATotal: Rs.${o.totalAmount}%0A%0A*Items:*%0A${itemsList}%0A%0APlease reply with "YES" to confirm your order.%0AWe will guide you with the payment details after your confirmation.%0A%0AThank you!`;
     } else if (messageType === 'packing') {
-      msg = `*DURGA AGENCIES — Payment Confirmed!*%0A%0AHi *${o.customerName}*,%0AYour payment is confirmed. We are now PACKING your order!%0A%0AAmount: Rs.${o.totalAmount}%0A%0AThank you!`;
+      msg = `*DURGA AGENCIES — Payment Confirmed!*%0A%0AHi ${o.customerName},%0AYour payment is confirmed. We are now PACKING your order!%0A%0AAmount: Rs.${o.totalAmount}%0A%0AThank you!`;
     } else if (messageType === 'dispatched') {
-      msg = `*DURGA AGENCIES — Parcel Dispatched!*%0A%0AHi *${o.customerName}*,%0AYour order has been DISPATCHED!${o.deliveryNote ? `%0AVan Info: ${o.deliveryNote}` : ''}%0A%0AThank you!`;
+      msg = `*DURGA AGENCIES — Parcel Dispatched!*%0A%0AHi ${o.customerName},%0AYour order has been DISPATCHED!${o.deliveryNote ? `%0AVan Info: ${o.deliveryNote}` : ''}%0A%0AThank you!`;
     }
     const phone = (o.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${msg}`, '_blank');
