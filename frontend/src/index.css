@@ -1426,7 +1426,10 @@ footer {
   .cart-layout { grid-template-columns: 1fr; }
 
   /* Footer */
-  .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .footer-grid { grid-template-columns: 1fr; gap: 1.2rem; }
+  .footer-col-title { margin-bottom: 0.8rem; font-size: 0.95rem; }
+  .footer-links-list { gap: 8px; }
+  .footer-links-list li { margin-bottom: 2px; }
 
   /* Admin */
   .admin-root { grid-template-columns: 1fr !important; }
@@ -1442,13 +1445,14 @@ footer {
   .product-card-btn { font-size: 0.8rem; padding: 0.6rem; }
   .category-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .category-card { padding: 1rem; }
-  .hero-h1 { font-size: 1.6rem; }
-  .hero-btn { padding: 0.9rem 2rem; font-size: 0.9rem; }
+  .hero-h1 { font-size: 1.4rem; line-height: 1.2; }
+  .hero-btn { padding: 0.9rem 2rem; font-size: 0.9rem; margin-bottom: 1.5rem; }
   .loader-badges { flex-wrap: wrap; gap: 10px; }
   .loader-badge-item { font-size: 0.65rem; }
   .top-bar-right { display: none; }
   .hero-slider-container { min-height: 450px; }
-  .hero-slide { padding: 2.5rem 1.5rem; }
+  .hero-slide { padding: 2rem 1.5rem; }
+  .slider-dots { bottom: 12px; }
 }
 
 /* --- FESTIVE PLACEHOLDER ILLUSTRATION --- */
@@ -1821,6 +1825,23 @@ footer {
     grid-template-columns: 1fr;
     gap: 16px;
     margin-bottom: 3rem;
+  }
+  
+  .product-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem 0;
+  }
+  
+  .product-row > div:first-child {
+    flex: 1 1 100% !important;
+    padding-right: 0 !important;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+  }
+  
+  .product-row > div:nth-child(2) {
+    justify-content: flex-start !important;
   }
   
   .product-card {
