@@ -93,15 +93,11 @@ const dbConfig = {
 
 let db;
 
-// Generate Bill Number: DA-2026-0001-A4F2 format (random 4-character suffix for security)
+// Generate Bill Number: Simple incrementing number (1, 2, 3...)
 async function generateBillNumber() {
-  const year = new Date().getFullYear();
-  const [rows] = await db.query(
-    'SELECT COUNT(*) as count FROM orders WHERE YEAR(orderDate) = ?', [year]
-  );
-  const count = rows[0].count + 1;
-  const suffix = crypto.randomBytes(2).toString('hex').toUpperCase();
-  return `DA-${year}-${String(count).padStart(4, '0')}-${suffix}`;
+  const [rows] = await db.query('SELECT MAX(id) as maxId FROM orders');
+  const nextId = (rows[0].maxId || 0) + 1;
+  return nextId.toString();
 }
 
 async function initDB() {
