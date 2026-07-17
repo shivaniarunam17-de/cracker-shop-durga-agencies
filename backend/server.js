@@ -6,8 +6,16 @@ import multer from 'multer';
 import csvParser from 'csv-parser';
 import fs from 'fs';
 import crypto from 'crypto';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,7 +87,16 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static('uploads'));
-const upload = multer({ dest: 'uploads/' });
+const uploadLocal = multer({ dest: 'uploads/' });
+
+const cloudStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'crackers_shop',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif']
+  }
+});
+const uploadCloudinary = multer({ storage: cloudStorage });
 
 // MySQL Configuration
 const dbConfig = {
@@ -479,7 +496,7 @@ app.patch('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
 });
 
 // 9. Admin: Upload CSV (Bulk Add/Update)
-app.post('/api/admin/upload-csv', authenticateAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/admin/upload-csv', authenticateAdmin, uploadLocal.single('file'), async (req, res) => {
   const filePath = req.file.path;
   const productsToUpdate = [];
   let errorMsg = null;
@@ -535,26 +552,17 @@ app.post('/api/admin/upload-csv', authenticateAdmin, upload.single('file'), asyn
 });
 
 // 10. Admin: Bulk Link Images (Magic Photo Match)
-app.post('/api/admin/bulk-link-images', authenticateAdmin, upload.array('images', 200), async (req, res) => {
+app.post('/api/admin/bulk-link-images', authenticateAdmin, uploadCloudinary.array('images', 200), async (req, res) => {
   try {
     const files = req.files;
     if (!files || files.length === 0) return res.status(400).json({ error: "No images selected" });
-
-    // Ensure uploads directory exists
-    if (!fs.existsSync('uploads')) {
-      fs.mkdirSync('uploads');
-    }
 
     let updatedCount = 0;
     for (const file of files) {
       const fileName = file.originalname;
       const productName = fileName.split('.')[0].trim(); // Matches 'Laksmi' from 'Laksmi.jpg'
       
-      const targetPath = `uploads/${fileName}`;
-      // Move file from temporary location to static uploads folder
-      fs.renameSync(file.path, targetPath);
-      
-      const imageUrl = `/uploads/${fileName}`;
+      const imageUrl = file.path; // Cloudinary automatically puts the secure URL here
 
       const [result] = await db.query(
         "UPDATE products SET image = ? WHERE name LIKE ?", 
@@ -564,7 +572,7 @@ app.post('/api/admin/bulk-link-images', authenticateAdmin, upload.array('images'
     }
 
     productsCache = null; // Clear cache
-    res.json({ message: `Magic Match Complete! Linked ${updatedCount} products.`, count: updatedCount });
+    res.json({ message: `Magic Match Complete! Linked ${updatedCount} products to Cloudinary.`, count: updatedCount });
   } catch (err) {
     console.error("Bulk Photo Link Error:", err);
     res.status(500).json({ error: "Internal error during magic link." });
