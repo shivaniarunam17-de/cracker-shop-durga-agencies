@@ -514,7 +514,7 @@ app.post('/api/admin/upload-csv', authenticateAdmin, uploadLocal.single('file'),
         const fixedPrice = parseFloat(data[findKey('price')] || data[findKey('realRate')] || data[findKey('mrp')] || 0);
         const offer = parseInt(data[findKey('offer')] || data[findKey('discount')] || 0);
         const fakeMRP = (offer > 0 && offer < 100) ? Math.round(fixedPrice / (1 - (offer / 100))) : fixedPrice;
-        const category = data[findKey('category')] || 'Single Sound';
+        const category = data[findKey('category')] || 'General';
         const image = data[findKey('image')] || '';
         const stock = parseInt(data[findKey('stock')] || 100);
 

@@ -744,8 +744,7 @@ const App = () => {
   }, [view, loading]);
 
   const dynamicCategories = useMemo(() => {
-    const cats = ['All', ...new Set(products.map(p => p.category))];
-    if (cats.length <= 1) return ['All', 'Single Sound', 'Garlands', 'Sparklers', 'Ground Chakkars', 'Flower Pots', 'Kids Special'];
+    const cats = ['All', ...new Set(products.map(p => p.category).filter(Boolean))];
     return cats;
   }, [products]);
 
@@ -855,7 +854,7 @@ const App = () => {
     if (searchQuery) filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const groups = filtered.reduce((acc, p) => {
-      const cat = p.category || 'Single Sound';
+      const cat = p.category || 'General';
       acc[cat] = acc[cat] || [];
       acc[cat].push(p);
       return acc;
@@ -1116,7 +1115,7 @@ const App = () => {
                             )}
                           </div>
                           <div className="product-card-details">
-                            <div className="product-card-category">{p.category || 'Single Sound'}</div>
+                            <div className="product-card-category">{p.category || 'General'}</div>
                             <h3 className="product-card-name">{p.name}</h3>
 
                             <div className="product-card-prices">
