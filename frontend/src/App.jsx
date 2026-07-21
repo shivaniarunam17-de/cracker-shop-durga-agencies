@@ -24,9 +24,7 @@ const getImageUrl = (imagePath) => {
   return encodeURI(`${BACKEND_URL}${imagePath}`);
 };
 
-const CATEGORY_ICONS = {
-  "All": "✨", "Single Sound": "💥", "Garlands": "🧨", "Sparklers": "🌟", "Chakkars": "🌀", "Pots": "🏺", "Gift Boxes": "🎁", "Kids Selection": "🧸", "Bijili": "⚡", "Aerial Fancy": "🚀"
-};
+
 
 const SLIDES_DATA = [
   {
@@ -80,97 +78,6 @@ const SlideIcon = ({ name }) => {
   return null;
 };
 
-const LoadingScreen = () => {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const start = Date.now();
-    const duration = 2800; // Complete slightly before 3s timer
-
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const percentage = Math.min(Math.floor((elapsed / duration) * 100), 100);
-      setProgress(percentage);
-      if (percentage >= 100) {
-        clearInterval(interval);
-      }
-    }, 30);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="loader-screen-wrapper">
-      <div className="loader-card">
-        {/* Glow Ring containing ONLY the giant logo */}
-        <div className="loader-glow-ring">
-          <img src={logo} className="loader-logo-img" alt="Logo" />
-        </div>
-
-        {/* Brand details and diya placed outside/below the ring */}
-        <h1 className="loader-brand-name">DURGA AGENCIES</h1>
-        <h2 className="loader-welcome-text">Welcome to Durga Agencies</h2>
-
-        {/* Glowing SVG Diya Vector */}
-        <svg width="40" height="30" viewBox="0 0 40 30" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '15px 0' }}>
-          <path d="M5 18C5 24.6274 11.7157 28 20 28C28.2843 28 35 24.6274 35 18C35 18 35 16 20 16C5 16 5 18 5 18Z" fill="url(#diyaBaseGrad)" stroke="#ffb700" strokeWidth="2" />
-          <path d="M20 2C20 2 24 10 24 13C24 15.2091 22.2091 17 20 17C17.7909 17 16 15.2091 16 13C16 10 20 2 20 2Z" fill="url(#flameGrad)" filter="url(#glow)" />
-          <defs>
-            <linearGradient id="diyaBaseGrad" x1="20" y1="16" x2="20" y2="28" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#003b95" />
-              <stop offset="1" stopColor="#001845" />
-            </linearGradient>
-            <linearGradient id="flameGrad" x1="20" y1="2" x2="20" y2="17" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#ffe066" />
-              <stop offset="0.5" stopColor="#ffb700" />
-              <stop offset="1" stopColor="#ff3b30" />
-            </linearGradient>
-            <filter id="glow" x="12" y="-2" width="16" height="23" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-        </svg>
-
-        <p className="loader-subtext" style={{ marginBottom: '1.5rem' }}>Preparing your festive shopping experience...</p>
-
-        {/* Progress Bar Container */}
-        <div className="loader-progress-section">
-          <div className="loader-progress-info">
-            <span>Loading joyful celebrations...</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="loader-progress-bar-bg">
-            <div className="loader-progress-bar-fill" style={{ width: `${progress}%` }}></div>
-          </div>
-        </div>
-
-        {/* Bottom Badges */}
-        <div className="loader-badges">
-          <div className="loader-badge-item">
-            <ShieldCheck size={16} className="loader-badge-icon" />
-            <span>Safe & Certified</span>
-          </div>
-          <div className="loader-badge-item">
-            <Award size={16} className="loader-badge-icon" />
-            <span>Premium Quality</span>
-          </div>
-          <div className="loader-badge-item">
-            <Truck size={16} className="loader-badge-icon" />
-            <span>Fast & Reliable Delivery</span>
-          </div>
-          <div className="loader-badge-item">
-            <Lock size={16} className="loader-badge-icon" />
-            <span>Secure Shopping</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Promo slider items (no emojis)
 const PROMO_ITEMS = [
@@ -205,181 +112,11 @@ const PromoTicker = ({ discountPercent }) => {
   );
 };
 
-const CRACKER_PALETTES = [
-  ['#D4AF37', '#FFDF00', '#DAA520', '#FFFFFF'],
-  ['#C0C0C0', '#E5E4E2', '#B0C4DE', '#FFFFFF'],
-  ['#FF7F50', '#FF6347', '#FF4500', '#FFFFFF'],
-  ['#DDA0DD', '#EE82EE', '#BA55D3', '#FFFFFF'],
-  ['#40E0D0', '#48D1CC', '#00CED1', '#FFFFFF'],
-];
-
-// ---- Random Cracker Bursts only (no mouse trail) ----
-const SparklerCursor = () => {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
-
-    // --- Random cracker rockets only ---
-    let rockets = [];
-    let burstParticles = [];
-    let lastRocketTime = 0;
-    let nextRocketDelay = 900 + Math.random() * 1800;
-    let lastDirectBurst = 0;
-    let nextDirectDelay = 3000 + Math.random() * 4000;
-
-    const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
 
 
-
-    const addBurstParticles = (x, y, palette) => {
-      // Main firework burst
-      const count = 70 + Math.floor(Math.random() * 40);
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-        const speed = 3 + Math.random() * 6;
-        const color = palette[Math.floor(Math.random() * palette.length)];
-        burstParticles.push({
-          x, y,
-          px: x, py: y, // Store previous position for trails
-          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-          size: Math.random() * 1.2 + 0.3, color, alpha: 1,
-          decay: Math.random() * 0.015 + 0.005, gravity: 0.04, friction: 0.94,
-        });
-      }
-      // Glowing center ring
-      for (let j = 0; j < 15; j++) {
-        const angle = (j / 15) * Math.PI * 2;
-        burstParticles.push({
-          x, y,
-          px: x, py: y,
-          vx: Math.cos(angle) * (8 + Math.random() * 3), vy: Math.sin(angle) * (8 + Math.random() * 3),
-          size: 0.5 + Math.random() * 1, color: '#FFFFFF', alpha: 1,
-          decay: 0.03 + Math.random() * 0.02, gravity: 0.02, friction: 0.90,
-        });
-      }
-    };
-
-
-    const spawnRocket = () => {
-      const palette = CRACKER_PALETTES[Math.floor(Math.random() * CRACKER_PALETTES.length)];
-      const x = 80 + Math.random() * (canvas.width - 160);
-      const targetY = canvas.height * (0.12 + Math.random() * 0.52);
-      rockets.push({ x, y: canvas.height + 10, targetY, vy: -(8 + Math.random() * 6), vx: (Math.random() - 0.5) * 2, palette, trail: [], done: false });
-    };
-
-    const spawnDirectBurst = () => {
-      const palette = CRACKER_PALETTES[Math.floor(Math.random() * CRACKER_PALETTES.length)];
-      const x = 60 + Math.random() * (canvas.width - 120);
-      const y = canvas.height * (0.15 + Math.random() * 0.65);
-      addBurstParticles(x, y, palette);
-    };
-
-
-    const animate = (timestamp) => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (timestamp - lastRocketTime > nextRocketDelay) {
-        spawnRocket();
-        if (Math.random() < 0.3) spawnRocket();
-        lastRocketTime = timestamp;
-        nextRocketDelay = 900 + Math.random() * 2000;
-      }
-
-      if (timestamp - lastDirectBurst > nextDirectDelay) {
-        spawnDirectBurst();
-        lastDirectBurst = timestamp;
-        nextDirectDelay = 3500 + Math.random() * 4500;
-      }
-
-      rockets = rockets.filter(r => !r.done);
-      rockets.forEach(r => {
-        r.trail.push({ x: r.x, y: r.y });
-        if (r.trail.length > 14) r.trail.shift();
-        r.trail.forEach((t, idx) => {
-          ctx.save();
-          ctx.globalAlpha = (idx / r.trail.length) * 0.55;
-          ctx.beginPath();
-          ctx.arc(t.x, t.y, 1.2, 0, Math.PI * 2);
-          ctx.fillStyle = r.palette[0];
-          ctx.fill();
-          ctx.restore();
-        });
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
-        r.y += r.vy; r.x += r.vx; r.vy *= 0.984;
-        if (r.y <= r.targetY || r.vy >= 0) {
-          addBurstParticles(r.x, r.y, r.palette);
-          r.done = true;
-        }
-      });
-
-      burstParticles = burstParticles.filter(p => p.alpha > 0);
-      burstParticles.forEach(p => {
-        ctx.save();
-        ctx.globalAlpha = p.alpha;
-
-        // Draw trailing lines for real firework look
-        ctx.beginPath();
-        ctx.moveTo(p.px, p.py);
-        ctx.lineTo(p.x, p.y);
-        ctx.lineWidth = p.size;
-        ctx.strokeStyle = p.color;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        // Draw bright head
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
-
-        p.px = p.x; p.py = p.y;
-        p.vx *= p.friction; p.vy *= p.friction; p.vy += p.gravity;
-        p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
-      });
-
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: 'fixed',
-        top: 0, left: 0,
-        width: '100vw', height: '100vh',
-        pointerEvents: 'none',
-        zIndex: -1,
-      }}
-    />
-  );
-};
 
 const App = () => {
-  const [loading, setLoading] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [view, setView] = useState('shop');
   const [products, setProducts] = useState([]);
@@ -509,7 +246,9 @@ const App = () => {
   };
 
   const fetchProducts = async () => {
+    setLoadingProducts(true);
     try { const res = await axios.get(`${API_BASE}/products`); setProducts(res.data); } catch (err) { }
+    finally { setLoadingProducts(false); }
   };
 
   const fetchSettings = async () => {
@@ -528,7 +267,6 @@ const App = () => {
     fetchProducts();
     fetchSettings();
     fetchSessionStatus();
-    const timer = setTimeout(() => setLoading(false), 3000);
     const hash = window.location.hash;
     if (window.location.pathname === '/admin' || hash === '#/admin') {
       setView('admin');
@@ -564,7 +302,6 @@ const App = () => {
     document.getElementsByTagName('head')[0].appendChild(link);
 
     return () => {
-      clearTimeout(timer);
       axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
@@ -862,7 +599,7 @@ const App = () => {
     return groups;
   }, [products, selectedCategory, searchQuery]);
 
-  if (loading) return <LoadingScreen />;
+  // Loading screen removed
 
   return (
     <div className="site-wrapper">
@@ -1089,8 +826,19 @@ const App = () => {
                 </div>
 
                 <div className="product-grid">
-                  {Object.entries(groupedProducts).flatMap(([category, items]) =>
-                    items.map(p => {
+                  {loadingProducts ? (
+                    <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1' }}>
+                      <RefreshCw className="spin-animation" size={40} color="#8B0000" style={{ animation: 'spin 1s linear infinite' }} />
+                      <p style={{ marginTop: '10px', color: '#666', fontWeight: 'bold' }}>Loading products...</p>
+                      <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  ) : Object.entries(groupedProducts).length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1', color: '#888' }}>
+                      <p>No products found.</p>
+                    </div>
+                  ) : (
+                    Object.entries(groupedProducts).flatMap(([category, items]) =>
+                      items.map(p => {
                       const pId = p.id || p._id;
                       const isOutOfStock = p.stock !== undefined && p.stock !== null && p.stock <= 0;
                       const isWishlisted = wishlist.some(i => (i.id || i._id) === pId);
@@ -1162,6 +910,7 @@ const App = () => {
                         </div>
                       );
                     })
+                    )
                   )}
                 </div>
               </div>
