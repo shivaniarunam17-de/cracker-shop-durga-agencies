@@ -340,15 +340,15 @@ const App = () => {
   }, [view]);
 
   useEffect(() => {
-    if (view !== 'shop' || loading) return;
+    if (view !== 'shop') return;
     const interval = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % dynamicSlides.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [view, loading, dynamicSlides.length]);
+  }, [view, dynamicSlides.length]);
 
   useEffect(() => {
-    if (view !== 'shop' || loading) return;
+    if (view !== 'shop') return;
     const canvas = document.getElementById('hero-fireworks-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -478,7 +478,7 @@ const App = () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [view, loading]);
+  }, [view]);
 
   const dynamicCategories = useMemo(() => {
     const cats = ['All', ...new Set(products.map(p => p.category).filter(Boolean))];
