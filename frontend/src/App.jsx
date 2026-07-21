@@ -116,10 +116,10 @@ const PromoTicker = ({ discountPercent }) => {
 
 
 const App = () => {
-  const [loadingProducts, setLoadingProducts] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [view, setView] = useState('shop');
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => JSON.parse(localStorage.getItem('cachedProducts') || '[]'));
+  const [loadingProducts, setLoadingProducts] = useState(() => !localStorage.getItem('cachedProducts'));
   const [cart, setCart] = useState([]);
 
   const renderProductImage = (p, isOutOfStock = false) => {
@@ -246,8 +246,12 @@ const App = () => {
   };
 
   const fetchProducts = async () => {
-    setLoadingProducts(true);
-    try { const res = await axios.get(`${API_BASE}/products`); setProducts(res.data); } catch (err) { }
+    if (products.length === 0) setLoadingProducts(true);
+    try { 
+      const res = await axios.get(`${API_BASE}/products`); 
+      setProducts(res.data);
+      localStorage.setItem('cachedProducts', JSON.stringify(res.data));
+    } catch (err) { }
     finally { setLoadingProducts(false); }
   };
 
