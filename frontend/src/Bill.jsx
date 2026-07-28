@@ -21,6 +21,12 @@ const Bill = ({ bill, onClose }) => {
 
   if (!bill) return null;
 
+  // Calculate total savings from items MRP/Original Price vs selling price
+  const totalSavings = bill.totalSavings || (bill.items ? bill.items.reduce((sum, item) => {
+    const mrp = item.originalPrice || item.mrp || (item.offer && item.offer < 100 ? Math.round(item.price / (1 - (item.offer / 100))) : item.price);
+    return sum + Math.max(0, (mrp - item.price) * item.qty);
+  }, 0) : 0);
+
   // Convert logo to base64 for print window embedding
   const getLogoBase64 = () => {
     return new Promise((resolve) => {
@@ -81,9 +87,10 @@ const Bill = ({ bill, onClose }) => {
           .item-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
           .item-table th { background: #082854; color: white; padding: 10px; font-size: 12px; text-transform: uppercase; font-weight: 800; }
           .item-table td { border: 1px solid #ddd; font-size: 12px; }
-          .summary-table { width: 40%; margin-left: 60%; border-collapse: collapse; margin-bottom: 30px; }
+          .summary-table { width: 45%; margin-left: 55%; border-collapse: collapse; margin-bottom: 20px; }
           .summary-table td { padding: 10px; border: 1px solid #ddd; }
           .grand-total { font-size: 16px; font-weight: 800; color: #8B0000; background: #fdf2f2; }
+          .savings-banner { background: #e8f5e9; border: 2px dashed #2e7d32; padding: 10px 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #2e7d32; margin-bottom: 20px; font-size: 14px; }
           .notes-section { border: 1px solid #ffe082; background: #fff8e1; padding: 15px; border-radius: 8px; margin-bottom: 30px; font-size: 11px; }
           .notes-title { font-weight: 800; color: #7c6000; margin-bottom: 6px; text-transform: uppercase; }
           .sign-area { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
@@ -157,6 +164,12 @@ const Bill = ({ bill, onClose }) => {
               <td style="text-align: right; font-weight: bold;">&#8377;${Number(bill.totalAmount).toFixed(2)}</td>
             </tr>
           </table>
+
+          ${totalSavings > 0 ? `
+          <div class="savings-banner">
+            🎉 CONGRATS! YOU SAVED &#8377;${totalSavings.toFixed(2)} ON THIS PURCHASE!
+          </div>
+          ` : ''}
 
           <div class="notes-section">
             <div class="notes-title">⚠️ Important Purchase Conditions</div>
@@ -241,6 +254,12 @@ const Bill = ({ bill, onClose }) => {
             ))}
           </tbody>
         </table>
+
+        {totalSavings > 0 && (
+          <div style={{ background: '#e8f5e9', borderRadius: '12px', padding: '10px 16px', border: '1px solid #c8e6c9', marginBottom: '12px', textAlign: 'center', fontWeight: '800', color: '#2e7d32', fontSize: '0.88rem' }}>
+            🎉 YOU SAVED ₹{totalSavings.toFixed(2)}!
+          </div>
+        )}
 
         <div style={{ background: '#fff8f0', borderRadius: '12px', padding: '12px 16px', border: '1px solid #f0ddd0', marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '1.2rem' }}>
