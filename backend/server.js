@@ -39,17 +39,17 @@ function verifyToken(token) {
   try {
     const [header, payload, signature] = token.split('.');
     if (!header || !payload || !signature) return null;
-    
+
     const expectedSignature = crypto
       .createHmac('sha256', JWT_SECRET)
       .update(`${header}.${payload}`)
       .digest('base64url');
-      
+
     if (signature !== expectedSignature) return null;
-    
+
     const decodedPayload = JSON.parse(Buffer.from(payload, 'base64url').toString());
     if (decodedPayload.exp && decodedPayload.exp < Date.now()) return null;
-    
+
     return decodedPayload;
   } catch (err) {
     return null;
@@ -150,21 +150,21 @@ async function initDB() {
 
     // Forceful check for missing columns (for existing databases)
     console.log("🛠️ Checking database schema for missing columns...");
-    try { 
-      await db.query("ALTER TABLE products ADD COLUMN originalPrice DECIMAL(10,2) DEFAULT 0 AFTER price"); 
-      console.log("✅ Added originalPrice column!"); 
-    } catch(e) {}
-    
-    try { 
-      await db.query("ALTER TABLE products ADD COLUMN offer INT DEFAULT 0 AFTER originalPrice"); 
-      console.log("✅ Added offer column!"); 
-    } catch(e) {}
-    
-    try { 
-      await db.query("ALTER TABLE products ADD UNIQUE (name)"); 
-      console.log("✅ Added duplicate protection (Unique Name)!"); 
-    } catch(e) {}
-    
+    try {
+      await db.query("ALTER TABLE products ADD COLUMN originalPrice DECIMAL(10,2) DEFAULT 0 AFTER price");
+      console.log("✅ Added originalPrice column!");
+    } catch (e) { }
+
+    try {
+      await db.query("ALTER TABLE products ADD COLUMN offer INT DEFAULT 0 AFTER originalPrice");
+      console.log("✅ Added offer column!");
+    } catch (e) { }
+
+    try {
+      await db.query("ALTER TABLE products ADD UNIQUE (name)");
+      console.log("✅ Added duplicate protection (Unique Name)!");
+    } catch (e) { }
+
     console.log("🌟 Database 'DURGA AGENCIES' is fully optimized and READY!");
 
     // Orders table with billNumber and orderType
@@ -232,20 +232,20 @@ async function initDB() {
     for (const setting of defaultSettings) {
       try {
         await db.execute('INSERT IGNORE INTO settings (`key`, `value`) VALUES (?, ?)', [setting.key, setting.value]);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Add missing columns if upgrading old DB
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN billNumber VARCHAR(50) UNIQUE`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN originalTotal DECIMAL(10,2)`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN totalSavings DECIMAL(10,2)`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN paymentMethod VARCHAR(50) DEFAULT 'UPI'`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN orderType VARCHAR(20) DEFAULT 'online'`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN orderStatus VARCHAR(50) DEFAULT 'Pending Payment'`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE orders ADD COLUMN deliveryNote TEXT`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE order_items ADD COLUMN originalPrice DECIMAL(10,2)`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE order_items ADD COLUMN offer INT DEFAULT 0`); } catch(e) {}
-    try { await db.execute(`ALTER TABLE order_items ADD COLUMN subtotal DECIMAL(10,2)`); } catch(e) {}
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN billNumber VARCHAR(50) UNIQUE`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN originalTotal DECIMAL(10,2)`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN totalSavings DECIMAL(10,2)`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN paymentMethod VARCHAR(50) DEFAULT 'UPI'`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN orderType VARCHAR(20) DEFAULT 'online'`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN orderStatus VARCHAR(50) DEFAULT 'Pending Payment'`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN deliveryNote TEXT`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE order_items ADD COLUMN originalPrice DECIMAL(10,2)`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE order_items ADD COLUMN offer INT DEFAULT 0`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE order_items ADD COLUMN subtotal DECIMAL(10,2)`); } catch (e) { }
 
     // Migrate legacy bills: Update existing orders that don't have a 4-character suffix (e.g. length of 'DA-2026-0001' is 12)
     try {
@@ -256,7 +256,7 @@ async function initDB() {
         await db.execute("UPDATE orders SET billNumber = ? WHERE id = ?", [newBillNumber, ord.id]);
         console.log(`Updated legacy order ID ${ord.id} to new secure billNumber: ${newBillNumber}`);
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Migration error:", e);
     }
 
@@ -285,6 +285,9 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache duration
 // 0. Ping route to keep server awake
 app.get('/api/ping', (req, res) => res.send('pong'));
 
+// 0. Keep-alive Ping Endpoint
+app.get('/api/ping', (req, res) => res.status(200).send('pong'));
+
 // 1. Get all products
 app.get('/api/products', async (req, res) => {
   try {
@@ -292,7 +295,7 @@ app.get('/api/products', async (req, res) => {
     if (productsCache && (Date.now() - lastCacheTime < CACHE_DURATION)) {
       return res.json(productsCache);
     }
-    
+
     const [rows] = await db.query('SELECT * FROM products');
     productsCache = rows; // Store in cache
     lastCacheTime = Date.now();
@@ -330,7 +333,7 @@ app.post('/api/orders', async (req, res) => {
         [item.qty, item.id || item._id]
       );
     }
-    
+
     productsCache = null; // Invalidate cache so frontend gets updated stock
 
     // Return full bill data
@@ -373,7 +376,7 @@ app.post('/api/admin/walkin-order', authenticateAdmin, async (req, res) => {
         );
       }
     }
-    
+
     productsCache = null; // Invalidate cache so frontend gets updated stock
 
     const bill = { billNumber, orderId, customerName: customerName || 'Walk-in Customer', phone, address, items, totalAmount, originalTotal, savings, orderType: 'walkin', orderDate: new Date(), paymentMethod: paymentMethod || 'Cash' };
@@ -450,7 +453,7 @@ app.post('/api/admin/add-product', authenticateAdmin, async (req, res) => {
     const fixedPrice = parseFloat(price || 0);
     const offerPercent = parseInt(offer || 0);
     const fakeMRP = (offerPercent > 0 && offerPercent < 100) ? Math.round(fixedPrice / (1 - (offerPercent / 100))) : fixedPrice;
-    
+
     await db.execute(
       'INSERT INTO products (name, category, price, originalPrice, offer, image, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, category, fixedPrice, fakeMRP, offerPercent, image || '', stock || 100]
@@ -478,7 +481,7 @@ app.patch('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
       const currentPrice = price !== undefined ? parseFloat(price) : parseFloat(prod[0]?.price || 0);
       const currentOffer = offer !== undefined ? parseInt(offer) : parseInt(prod[0]?.offer || 0);
       const fakeMRP = (currentOffer > 0 && currentOffer < 100) ? Math.round(currentPrice / (1 - (currentOffer / 100))) : currentPrice;
-      
+
       updates.push('price = ?'); params.push(currentPrice);
       updates.push('offer = ?'); params.push(currentOffer);
       updates.push('originalPrice = ?'); params.push(fakeMRP);
@@ -486,7 +489,7 @@ app.patch('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
 
     if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
     params.push(req.params.id);
-    
+
     await db.execute(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`, params);
     productsCache = null; // Clear cache
     res.json({ message: 'Product updated successfully!' });
@@ -506,9 +509,9 @@ app.post('/api/admin/upload-csv', authenticateAdmin, uploadLocal.single('file'),
     .on('data', (data) => {
       const keys = Object.keys(data);
       const findKey = (str) => keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === str.toLowerCase().replace(/[^a-z0-9]/g, ''));
-      
+
       const name = data[findKey('name')];
-      if (!name) return; 
+      if (!name) return;
 
       try {
         const fixedPrice = parseFloat(data[findKey('price')] || data[findKey('realRate')] || data[findKey('mrp')] || 0);
@@ -527,7 +530,7 @@ app.post('/api/admin/upload-csv', authenticateAdmin, uploadLocal.single('file'),
       try {
         if (errorMsg) return res.status(400).json({ error: errorMsg });
         if (productsToUpdate.length === 0) return res.status(400).json({ error: "No valid product names found in CSV." });
-        
+
         console.log(`Processing: ${productsToUpdate.length} rows`);
         const query = `
           INSERT INTO products (name, category, price, originalPrice, offer, image, stock) 
@@ -540,7 +543,7 @@ app.post('/api/admin/upload-csv', authenticateAdmin, uploadLocal.single('file'),
           stock=VALUES(stock)
         `;
         await db.query(query, [productsToUpdate]);
-        
+
         productsCache = null; // Clear cache
         fs.unlinkSync(filePath);
         res.json({ message: 'Sync Successful!', count: productsToUpdate.length });
@@ -561,12 +564,12 @@ app.post('/api/admin/bulk-link-images', authenticateAdmin, uploadCloudinary.arra
     for (const file of files) {
       const fileName = file.originalname;
       const productName = fileName.split('.')[0].trim(); // Matches 'Laksmi' from 'Laksmi.jpg'
-      
+
       const imageUrl = file.path; // Cloudinary automatically puts the secure URL here
 
       const [result] = await db.query(
-        "UPDATE products SET image = ? WHERE name LIKE ?", 
-        [imageUrl, `%${productName}%`]
+        "UPDATE products SET image = ? WHERE name LIKE ?",
+        [imageUrl, productName]
       );
       if (result.affectedRows > 0) updatedCount++;
     }
