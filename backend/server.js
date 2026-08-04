@@ -563,7 +563,8 @@ app.post('/api/admin/bulk-link-images', authenticateAdmin, uploadCloudinary.arra
     let updatedCount = 0;
     for (const file of files) {
       const fileName = file.originalname;
-      const productName = fileName.split('.')[0].trim(); // Matches 'Laksmi' from 'Laksmi.jpg'
+      const lastDotIndex = fileName.lastIndexOf('.');
+      const productName = (lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName).trim(); // Correctly handles names like 'TWINKLING STAR(1.5 saatai).jpg'
 
       const imageUrl = file.path; // Cloudinary automatically puts the secure URL here
 
