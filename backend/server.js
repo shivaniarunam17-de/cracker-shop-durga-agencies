@@ -119,20 +119,28 @@ async function generateBillNumber() {
 
 async function initDB() {
   try {
-    const tempDb = await mysql.createConnection({
-      host: dbConfig.host,
-      port: dbConfig.port,
-      user: dbConfig.user,
-      password: dbConfig.password,
-      ssl: dbConfig.ssl
-    });
-
-    await tempDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-    await tempDb.end();
+    try {
+      const tempDb = await mysql.createConnection({
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        ssl: dbConfig.ssl
+      });
+      await tempDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+      await tempDb.end();
+    } catch (e) {
+      console.log('Note on CREATE DATABASE:', e.message);
+    }
 
     // Initialize Connection Pool
-    db = mysql.createPool(dbConfig);
-    console.log('✅ MySQL Connection Pool Created!');
+    db = mysql.createPool({
+      ...dbConfig,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    });
+    console.log('✅ TiDB MySQL Connection Pool Created!');
 
     // Create products table if it doesn't exist
     await db.query(`
@@ -226,7 +234,12 @@ async function initDB() {
       { key: 'shop_phone', value: '+91 76048 49468, +91 91760 48494' },
       { key: 'shop_address', value: '2/553D, Mettamalai, Sivakasi - 626 230' },
       { key: 'shop_email', value: 'durgaagenciessvk@gmail.com' },
-      { key: 'gst_number', value: '' }
+      { key: 'gst_number', value: '' },
+      // Free offers scrolling announcement ticker
+      { key: 'offer_ticker_active', value: 'false' },
+      { key: 'offer_ticker_text', value: '' },
+      { key: 'offer_ticker_bg', value: 'gold' },
+      { key: 'offer_ticker_speed', value: '25' }
     ];
 
     for (const setting of defaultSettings) {
@@ -243,6 +256,10 @@ async function initDB() {
     try { await db.execute(`ALTER TABLE orders ADD COLUMN orderType VARCHAR(20) DEFAULT 'online'`); } catch (e) { }
     try { await db.execute(`ALTER TABLE orders ADD COLUMN orderStatus VARCHAR(50) DEFAULT 'Pending Payment'`); } catch (e) { }
     try { await db.execute(`ALTER TABLE orders ADD COLUMN deliveryNote TEXT`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN place VARCHAR(100)`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN state VARCHAR(100) DEFAULT 'Tamil Nadu'`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN taxInvoiceNo VARCHAR(100)`); } catch (e) { }
+    try { await db.execute(`ALTER TABLE orders ADD COLUMN transportInfo VARCHAR(255)`); } catch (e) { }
     try { await db.execute(`ALTER TABLE order_items ADD COLUMN originalPrice DECIMAL(10,2)`); } catch (e) { }
     try { await db.execute(`ALTER TABLE order_items ADD COLUMN offer INT DEFAULT 0`); } catch (e) { }
     try { await db.execute(`ALTER TABLE order_items ADD COLUMN subtotal DECIMAL(10,2)`); } catch (e) { }
@@ -308,36 +325,55 @@ app.get('/api/products', async (req, res) => {
 // 2. Place an Online Order (auto-generates bill)
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customerName, phone, address, items, totalAmount, paymentMethod } = req.body;
+    const { customerName, phone, place, state, address, items, totalAmount, paymentMethod } = req.body;
+
+    const cleanPhone = phone ? String(phone).replace(/\D/g, '') : '';
+    if (cleanPhone.length !== 10) {
+      return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+    }
+
+    // Duplicate Order Protection: Check if identical order from same phone within last 25 seconds
+    const [existingRecent] = await db.query(
+      'SELECT id, billNumber, totalAmount, originalTotal, totalSavings, orderDate FROM orders WHERE phone = ? AND totalAmount = ? AND orderDate >= NOW() - INTERVAL 25 SECOND ORDER BY id DESC LIMIT 1',
+      [cleanPhone, totalAmount]
+    );
+
+    if (existingRecent.length > 0) {
+      console.log(`⚠️ Prevented duplicate rapid order submission for phone: ${cleanPhone}`);
+      const prev = existingRecent[0];
+      const bill = { billNumber: prev.billNumber, orderId: prev.id, customerName, phone: cleanPhone, place: place || '', state: state || 'Tamil Nadu', address: address || '', items, totalAmount: prev.totalAmount, originalTotal: prev.originalTotal, savings: prev.totalSavings, orderType: 'online', orderDate: prev.orderDate };
+      return res.status(200).json({ message: 'Order Placed!', bill });
+    }
 
     const billNumber = await generateBillNumber();
 
-    const originalTotal = items.reduce((sum, i) => sum + ((i.originalPrice || i.price) * i.qty), 0);
+    const originalTotal = items.reduce((sum, i) => sum + ((i.originalPrice || i.price) * (parseInt(i.qty, 10) || 1)), 0);
     const savings = originalTotal - totalAmount;
 
     const [orderResult] = await db.execute(
-      'INSERT INTO orders (billNumber, customerName, phone, address, totalAmount, originalTotal, totalSavings, paymentMethod, orderType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [billNumber, customerName, phone, address, totalAmount, originalTotal, savings, paymentMethod || 'UPI', 'online']
+      'INSERT INTO orders (billNumber, customerName, phone, place, state, address, totalAmount, originalTotal, totalSavings, paymentMethod, orderType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [billNumber, customerName, cleanPhone, place || '', state || 'Tamil Nadu', address || 'Shop', totalAmount, originalTotal, savings, paymentMethod || 'UPI', 'online']
     );
     const orderId = orderResult.insertId;
 
     for (const item of items) {
-      const subtotal = item.price * item.qty;
+      const qty = parseInt(item.qty, 10) || 1;
+      const subtotal = item.price * qty;
       await db.execute(
         'INSERT INTO order_items (orderId, productId, name, originalPrice, price, offer, qty, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [orderId, item.id || item._id, item.name, item.originalPrice || item.price, item.price, item.offer || 0, item.qty, subtotal]
+        [orderId, item.id || item._id, item.name, item.originalPrice || item.price, item.price, item.offer || 0, qty, subtotal]
       );
       // Automatically deduct inventory stock level
       await db.execute(
         'UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?',
-        [item.qty, item.id || item._id]
+        [qty, item.id || item._id]
       );
     }
 
     productsCache = null; // Invalidate cache so frontend gets updated stock
 
     // Return full bill data
-    const bill = { billNumber, orderId, customerName, phone, address, items, totalAmount, originalTotal, savings, orderType: 'online', orderDate: new Date() };
+    const bill = { billNumber, orderId, customerName, phone: cleanPhone, place: place || '', state: state || 'Tamil Nadu', address: address || '', items, totalAmount, originalTotal, savings, orderType: 'online', orderDate: new Date() };
     res.status(201).json({ message: 'Order Placed!', bill });
 
 
@@ -349,38 +385,49 @@ app.post('/api/orders', async (req, res) => {
 // 3. Admin: Create Walk-in Bill (shop customer)
 app.post('/api/admin/walkin-order', authenticateAdmin, async (req, res) => {
   try {
-    const { customerName, phone, address, items, totalAmount, paymentMethod } = req.body;
+    const { customerName, phone, place, state, address, items, totalAmount, paymentMethod, taxInvoiceNo, transportInfo } = req.body;
 
     const billNumber = await generateBillNumber();
-    const originalTotal = items.reduce((sum, i) => sum + ((i.originalPrice || i.price) * i.qty), 0);
+    const originalTotal = items.reduce((sum, i) => sum + ((i.originalPrice || i.price) * (parseInt(i.qty, 10) || 1)), 0);
     const savings = originalTotal - totalAmount;
 
     const [orderResult] = await db.execute(
-      'INSERT INTO orders (billNumber, customerName, phone, address, totalAmount, originalTotal, totalSavings, paymentMethod, orderType, paymentStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [billNumber, customerName || 'Walk-in Customer', phone || '', address || 'Shop', totalAmount, originalTotal, savings, paymentMethod || 'Cash', 'walkin', 'Paid']
+      'INSERT INTO orders (billNumber, customerName, phone, place, state, address, totalAmount, originalTotal, totalSavings, paymentMethod, orderType, paymentStatus, taxInvoiceNo, transportInfo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [billNumber, customerName || 'Walk-in Customer', phone || '', place || '', state || 'Tamil Nadu', address || 'Shop', totalAmount, originalTotal, savings, paymentMethod || 'Cash', 'walkin', 'Paid', taxInvoiceNo || null, transportInfo || '']
     );
     const orderId = orderResult.insertId;
 
     for (const item of items) {
-      const subtotal = item.price * item.qty;
+      const qty = parseInt(item.qty, 10) || 1;
+      const subtotal = item.price * qty;
       await db.execute(
         'INSERT INTO order_items (orderId, productId, name, originalPrice, price, offer, qty, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [orderId, item.id || item._id || '', item.name, item.originalPrice || item.price, item.price, item.offer || 0, item.qty, subtotal]
+        [orderId, item.id || item._id, item.name, item.originalPrice || item.price, item.price, item.offer || 0, qty, subtotal]
       );
-      // Automatically deduct inventory stock level
-      const pId = item.id || item._id;
-      if (pId) {
-        await db.execute(
-          'UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?',
-          [item.qty, pId]
-        );
-      }
+      await db.execute(
+        'UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+        [qty, item.id || item._id]
+      );
     }
 
-    productsCache = null; // Invalidate cache so frontend gets updated stock
+    productsCache = null; // Invalidate cache
 
-    const bill = { billNumber, orderId, customerName: customerName || 'Walk-in Customer', phone, address, items, totalAmount, originalTotal, savings, orderType: 'walkin', orderDate: new Date(), paymentMethod: paymentMethod || 'Cash' };
+    const bill = { billNumber, orderId, customerName: customerName || 'Walk-in Customer', phone, place: place || '', state: state || 'Tamil Nadu', address, items, totalAmount, originalTotal, savings, orderType: 'walkin', orderDate: new Date(), paymentMethod: paymentMethod || 'Cash', taxInvoiceNo: taxInvoiceNo || null, transportInfo: transportInfo || '' };
     res.status(201).json({ message: 'Walk-in Bill Created!', bill });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3b. Admin: Update Tax Invoice Number & Transport details for an existing order
+app.patch('/api/admin/orders/:id/invoice', authenticateAdmin, async (req, res) => {
+  try {
+    const { taxInvoiceNo, transportInfo, place, state, address } = req.body;
+    await db.execute(
+      'UPDATE orders SET taxInvoiceNo = ?, transportInfo = COALESCE(?, transportInfo), place = COALESCE(?, place), state = COALESCE(?, state), address = COALESCE(?, address) WHERE id = ?',
+      [taxInvoiceNo || null, transportInfo, place, state, address, req.params.id]
+    );
+    res.json({ message: 'Tax Invoice details updated successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -389,7 +436,11 @@ app.post('/api/admin/walkin-order', authenticateAdmin, async (req, res) => {
 // 4. Get Bill by billNumber or orderId
 app.get('/api/bill/:billNumber', async (req, res) => {
   try {
-    const [orders] = await db.query('SELECT * FROM orders WHERE billNumber = ?', [req.params.billNumber]);
+    const term = req.params.billNumber.trim();
+    let [orders] = await db.query('SELECT * FROM orders WHERE billNumber = ? OR id = ?', [term, term]);
+    if (!orders.length) {
+      [orders] = await db.query('SELECT * FROM orders WHERE billNumber LIKE ?', [`%${term}`]);
+    }
     if (!orders.length) return res.status(404).json({ error: 'Bill not found' });
 
     const order = orders[0];
@@ -441,6 +492,26 @@ app.patch('/api/admin/orders/:id/status', authenticateAdmin, async (req, res) =>
     params.push(req.params.id);
     await db.execute(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`, params);
     res.json({ message: 'Order updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7b. Admin: Delete order & restore stock
+app.delete('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    // Restore product stock levels for deleted order items
+    const [items] = await db.query('SELECT productId, qty FROM order_items WHERE orderId = ?', [orderId]);
+    for (const item of items) {
+      if (item.productId) {
+        await db.execute('UPDATE products SET stock = stock + ? WHERE id = ?', [item.qty, item.productId]);
+      }
+    }
+    await db.execute('DELETE FROM order_items WHERE orderId = ?', [orderId]);
+    await db.execute('DELETE FROM orders WHERE id = ?', [orderId]);
+    productsCache = null; // Clear cache
+    res.json({ message: 'Order deleted and stock restored successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -701,7 +772,11 @@ app.get('/api/settings', async (req, res) => {
       promo_subtitle: 'UP TO 80% OFF ON SELECTED ITEMS',
       free_shipping_threshold: '999',
       global_discount_percent: '0',
-      shipping_cost: '100'
+      shipping_cost: '100',
+      offer_ticker_active: 'false',
+      offer_ticker_text: '',
+      offer_ticker_bg: 'gold',
+      offer_ticker_speed: '25'
     };
     res.json({ ...fallbacks, ...settingsMap });
   } catch (err) {
