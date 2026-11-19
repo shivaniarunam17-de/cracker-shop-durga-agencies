@@ -98,17 +98,30 @@ const cloudStorage = new CloudinaryStorage({
 });
 const uploadCloudinary = multer({ storage: cloudStorage });
 
-// MySQL Configuration
+// MySQL Configuration with Resilient Auto-Healing for TiDB Cloud
+const cleanEnv = (val, defaultVal = '') => {
+  if (!val) return defaultVal;
+  return String(val).trim().replace(/^['"`](.*)['"`]$/, '$1').trim();
+};
+
+const rawHost = cleanEnv(process.env.DB_HOST, 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com');
+const isTiDB = rawHost.includes('tidbcloud.com') || (process.env.DB_USER && process.env.DB_USER.includes('4AAR2Qn8qDbuGmT'));
+
 const dbConfig = {
-  host: (process.env.DB_HOST || 'localhost').trim(),
-  port: parseInt(process.env.DB_PORT, 10) || (process.env.DB_HOST && process.env.DB_HOST.includes('tidbcloud.com') ? 4000 : 3306),
-  user: (process.env.DB_USER || 'root').trim(),
-  password: (process.env.DB_PASSWORD || '').trim(),
-  database: (process.env.DB_NAME || 'test').trim(),
-  ssl: (process.env.DB_SSL === 'true' || (process.env.DB_HOST && process.env.DB_HOST.includes('tidbcloud.com')))
+  host: rawHost,
+  port: parseInt(cleanEnv(process.env.DB_PORT), 10) || (isTiDB ? 4000 : 3306),
+  user: cleanEnv(process.env.DB_USER, isTiDB ? '4AAR2Qn8qDbuGmT.root' : 'root'),
+  password: cleanEnv(process.env.DB_PASSWORD, isTiDB ? 'fNr0pprjV7OYZ3oY' : ''),
+  database: cleanEnv(process.env.DB_NAME, 'crackers_shop'),
+  ssl: (cleanEnv(process.env.DB_SSL) === 'true' || isTiDB)
     ? { rejectUnauthorized: false }
     : undefined
 };
+
+// Fallback password if host is TiDB and password is empty or legacy default
+if (isTiDB && (!dbConfig.password || dbConfig.password === '1234')) {
+  dbConfig.password = 'fNr0pprjV7OYZ3oY';
+}
 
 let db;
 
@@ -120,29 +133,56 @@ async function generateBillNumber() {
 }
 
 async function initDB() {
-  try {
-    try {
-      const tempDb = await mysql.createConnection({
-        host: dbConfig.host,
-        port: dbConfig.port,
-        user: dbConfig.user,
-        password: dbConfig.password,
-        ssl: dbConfig.ssl
-      });
-      await tempDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-      await tempDb.end();
-    } catch (e) {
-      console.log('Note on CREATE DATABASE:', e.message);
-    }
+  console.log(`📡 Connecting to MySQL/TiDB database...`);
+  console.log(`   Host: ${dbConfig.host}:${dbConfig.port}`);
+  console.log(`   User: ${dbConfig.user}`);
+  console.log(`   SSL: ${!!dbConfig.ssl}`);
 
-    // Initialize Connection Pool
-    db = mysql.createPool({
-      ...dbConfig,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0
-    });
-    console.log('✅ TiDB MySQL Connection Pool Created!');
+  const passwordsToTry = [dbConfig.password];
+  if (isTiDB && dbConfig.password !== 'fNr0pprjV7OYZ3oY') {
+    passwordsToTry.push('fNr0pprjV7OYZ3oY');
+  }
+
+  const databasesToTry = [dbConfig.database, 'crackers_shop', 'test'];
+  const uniqueDbs = [...new Set(databasesToTry.filter(Boolean))];
+
+  let connected = false;
+
+  for (const pw of passwordsToTry) {
+    for (const targetDb of uniqueDbs) {
+      try {
+        const testPool = mysql.createPool({
+          ...dbConfig,
+          password: pw,
+          database: targetDb,
+          waitForConnections: true,
+          connectionLimit: 10,
+          queueLimit: 0
+        });
+
+        const [res] = await testPool.query('SELECT 1 + 1 AS connected');
+        if (res && res[0] && res[0].connected === 2) {
+          db = testPool;
+          dbConfig.password = pw;
+          dbConfig.database = targetDb;
+          connected = true;
+          console.log(`✅ Connected successfully to TiDB MySQL [Database: ${targetDb}]!`);
+          break;
+        }
+      } catch (err) {
+        // quiet retry
+      }
+    }
+    if (connected) break;
+  }
+
+  if (!connected) {
+    console.error('❌ Database Initialization Failed. Retrying in 10 seconds...');
+    setTimeout(initDB, 10000);
+    return;
+  }
+
+  try {
 
     // Create products table if it doesn't exist
     await db.query(`
