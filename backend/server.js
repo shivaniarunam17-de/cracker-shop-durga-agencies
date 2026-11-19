@@ -100,12 +100,14 @@ const uploadCloudinary = multer({ storage: cloudStorage });
 
 // MySQL Configuration
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'crackers_shop',
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+  host: (process.env.DB_HOST || 'localhost').trim(),
+  port: parseInt(process.env.DB_PORT, 10) || (process.env.DB_HOST && process.env.DB_HOST.includes('tidbcloud.com') ? 4000 : 3306),
+  user: (process.env.DB_USER || 'root').trim(),
+  password: (process.env.DB_PASSWORD || '').trim(),
+  database: (process.env.DB_NAME || 'test').trim(),
+  ssl: (process.env.DB_SSL === 'true' || (process.env.DB_HOST && process.env.DB_HOST.includes('tidbcloud.com')))
+    ? { rejectUnauthorized: false }
+    : undefined
 };
 
 let db;
